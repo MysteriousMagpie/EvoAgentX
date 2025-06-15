@@ -1,5 +1,3 @@
-from evoagentx.core.runner import run_workflow
+from evoagentx.core.runner import run_workflow_async
 
 
-def run_goal(goal: str) -> str:
-    return run_workflow(goal)
