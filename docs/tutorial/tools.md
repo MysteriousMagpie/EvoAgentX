@@ -5,7 +5,8 @@ This tutorial walks you through using EvoAgentX's powerful tool ecosystem. Tools
 1. **Understanding the Tool Architecture**: Learn about the base Tool class and its functionality
 2. **Code Interpreters**: Execute Python code safely using Python and Docker interpreters
 3. **Search Tools**: Access information from the web using Wikipedia and Google search tools
-4. **MCP Tools**: Connect to external services using the Model Context Protocol
+4. **Calendar Tool**: Manage events and view today's schedule
+5. **MCP Tools**: Connect to external services using the Model Context Protocol
 
 By the end of this tutorial, you'll understand how to leverage these tools in your own agents and workflows.
 
@@ -452,7 +453,29 @@ for i, result in enumerate(results.get("results", [])):
 
 ---
 
-## 4. MCP Tools
+## 4. Calendar Tool
+
+EvoAgentX includes a lightweight `CalendarTool` for storing and retrieving daily events. Agents can read today's schedule and update it dynamically.
+
+### 4.1 Setup
+
+```python
+from evoagentx.tools.calendar import CalendarTool
+
+calendar = CalendarTool()
+today = calendar.get_today()
+```
+
+### 4.2 Available Methods
+
+- `get_today()` – list today's events
+- `add_event(title, start, end)` – create a new event
+- `remove_event(event_id)` – delete an event
+- `update_event(event_id, title, start, end)` – modify an event
+
+---
+
+## 5. MCP Tools
 
 **The Model Context Protocol (MCP) toolkit provides a standardized way to connect to external services through the MCP protocol. It enables agents to access specialized tools like job search services, data processing utilities, and other MCP-compatible APIs without requiring direct integration of each service.**
 
@@ -598,7 +621,8 @@ In this tutorial, we've explored the tool ecosystem in EvoAgentX:
 1. **Tool Architecture**: Understood the base Tool class and its standardized interface
 2. **Code Interpreters**: Learned how to execute Python code securely using both Python and Docker interpreters
 3. **Search Tools**: Discovered how to access web information using Wikipedia and Google search tools
-4. **MCP Tools**: Learned how to connect to external services using the Model Context Protocol
+4. **Calendar Tool**: Managed daily events through the built-in calendar
+5. **MCP Tools**: Learned how to connect to external services using the Model Context Protocol
 
 Tools in EvoAgentX extend your agents' capabilities by providing access to external resources and computation. By combining these tools with agents and workflows, you can build powerful AI systems that can retrieve information, perform calculations, and interact with the world.
 

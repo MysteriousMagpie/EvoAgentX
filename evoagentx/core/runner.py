@@ -7,6 +7,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+def get_today_events():
+    from server.api.calendar_store import calendar_store
+    return [e.dict() for e in calendar_store.list_today()]
+
 async def run_workflow_async(goal: str) -> str:
     """
     Run EvoAgentX workflow asynchronously.
@@ -26,11 +30,16 @@ async def run_workflow_async(goal: str) -> str:
     )
     llm = OpenAILLM(config=llm_config)
 
+    context = {
+        "today_events": get_today_events(),
+        "goal": goal,
+    }
+
     wf_generator = WorkFlowGenerator(llm=llm)
-    workflow_graph: WorkFlowGraph = wf_generator.generate_workflow(goal=goal)
+    workflow_graph: WorkFlowGraph = wf_generator.generate_workflow(goal=goal, context=context)
 
     agent_manager = AgentManager()
     agent_manager.add_agents_from_workflow(workflow_graph, llm_config=llm_config)
 
-    workflow = WorkFlow(graph=workflow_graph, agent_manager=agent_manager, llm=llm)
+    workflow = WorkFlow(graph=workflow_graph, agent_manager=agent_manager, llm=llm, context=context)
     return await workflow.async_execute()
