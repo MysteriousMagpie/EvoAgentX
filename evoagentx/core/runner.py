@@ -2,6 +2,7 @@ import asyncio
 from evoagentx.models import OpenAILLMConfig, OpenAILLM
 from evoagentx.workflow import WorkFlowGenerator, WorkFlowGraph, WorkFlow
 from evoagentx.agents import AgentManager
+from evoagentx.utils.calendar import get_today_events
 import os
 from dotenv import load_dotenv
 
@@ -33,4 +34,5 @@ async def run_workflow_async(goal: str) -> str:
     agent_manager.add_agents_from_workflow(workflow_graph, llm_config=llm_config)
 
     workflow = WorkFlow(graph=workflow_graph, agent_manager=agent_manager, llm=llm)
-    return await workflow.async_execute()
+    context = {"today_events": get_today_events(), "goal": goal}
+    return await workflow.async_execute(context)
