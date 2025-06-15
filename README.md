@@ -352,6 +352,27 @@ We appreciate your interest in contributing to our open-source initiative. We pr
 [![Star History Chart](https://api.star-history.com/svg?repos=EvoAgentX/EvoAgentX&type=Date)](https://www.star-history.com/#EvoAgentX/EvoAgentX&Date)
 
 
+## Quick Start (Full Stack)
+
+1. Copy `.env.example` to `.env` and add your `OPENAI_API_KEY`.
+2. Create a virtual environment and install backend dependencies:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r server/requirements.txt
+uvicorn server.main:app --reload
+```
+
+3. For the React frontend:
+
+```bash
+cd client
+pnpm install
+pnpm dev
+```
+
+
 ## 📚 Acknowledgements 
 This project builds upon several outstanding open-source projects: [AFlow](https://github.com/FoundationAgents/MetaGPT/tree/main/metagpt/ext/aflow), [TextGrad](https://github.com/zou-group/textgrad), [DSPy](https://github.com/stanfordnlp/dspy), [LiveCodeBench](https://github.com/LiveCodeBench/LiveCodeBench), and more. We would like to thank the developers and maintainers of these frameworks for their valuable contributions to the open-source community.
 
