@@ -138,3 +138,18 @@ print(output)
 
 For a complete working example, check out the [full workflow demo](https://github.com/EvoAgentX/EvoAgentX/blob/main/examples/workflow_demo.py).
 
+### Async Helper
+
+EvoAgentX also provides `run_workflow_async()` for convenience. This helper
+executes the workflow in one call and automatically passes today's calendar
+events as context so agents can reason about your schedule.
+
+```python
+import asyncio
+from evoagentx.core.runner import run_workflow_async
+
+result = asyncio.run(run_workflow_async("Generate html code for the Tetris game"))
+print(result)
+```
+
+
