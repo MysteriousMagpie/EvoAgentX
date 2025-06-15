@@ -26,7 +26,9 @@ class Event(EventBase):
 
 
 class CalendarEvent(BaseModel):
-    """Schema for adding events to macOS Calendar."""
+
+
+    """Event information for adding to the macOS Calendar."""
 
     title: str
     start: datetime

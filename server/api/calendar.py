@@ -1,23 +1,28 @@
 from fastapi import APIRouter, HTTPException
-
-from server.models.schemas import Event, EventCreate, CalendarEvent
-from datetime import datetime
 import subprocess
+from datetime import datetime
+
+
+from server.models.schemas import CalendarEvent, Event, EventCreate
+from server.core.macos_calendar import create_calendar_event
 from .calendar_store import calendar_store
 
 calendar_router = APIRouter(prefix="/calendar")
 
 
-def create_calendar_event(title: str, start: datetime, end: datetime, calendar_name: str = "Home") -> None:
+
+def create_calendar_event(title: str, start: str, end: str, calendar_name: str = "Home") -> None:
     """Create a macOS Calendar event via AppleScript."""
-    start_str = start.strftime("%A, %B %d, %Y at %I:%M %p")
-    end_str = end.strftime("%A, %B %d, %Y at %I:%M %p")
+    start_dt = datetime.fromisoformat(start)
+    end_dt = datetime.fromisoformat(end)
+    start_str = start_dt.strftime("%A, %B %d, %Y at %I:%M %p")
+    end_str = end_dt.strftime("%A, %B %d, %Y at %I:%M %p")
     script = (
-        'tell application "Calendar"\n'
+        f'tell application "Calendar"\n'
         f'  tell calendar "{calendar_name}"\n'
         f'    make new event with properties {{summary:"{title}", start date:date "{start_str}", end date:date "{end_str}"}}\n'
-        '  end tell\n'
-        'end tell'
+        f'  end tell\n'
+        f'end tell'
     )
     subprocess.run(["osascript", "-e", script], check=True)
 
@@ -46,8 +51,10 @@ def delete_event(event_id: int):
 
 
 @calendar_router.post("/add-events")
-def add_calendar_events(events: list[CalendarEvent]):
-    """Add multiple events to macOS Calendar."""
-    for event in events:
-        create_calendar_event(event.title, event.start, event.end, event.calendar_name)
+
+def add_events(events: list[CalendarEvent]):
+    """Add multiple events to the macOS Calendar."""
+
+    for e in events:
+        create_calendar_event(e.title, e.start, e.end, e.calendar_name)
     return {"added": len(events)}
