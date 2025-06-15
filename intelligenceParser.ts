@@ -3,6 +3,11 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+
+/* ------------------------------------------------------------------ */
+/*  OpenAI client (injectable for tests)                              */
+/* ------------------------------------------------------------------ */
 let openai: any = null;
 if (process.env.OPENAI_API_KEY) {
   openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -11,8 +16,10 @@ if (process.env.OPENAI_API_KEY) {
 export function setOpenAIClient(client: any) {
   openai = client;
 }
-const MEMORY = new Map<string, Memory>();
 
+/* ------------------------------------------------------------------ */
+/*  Memory utilities                                                  */
+/* ------------------------------------------------------------------ */
 export interface Memory {
   energyLevel?: 'low' | 'medium' | 'high';
   mood?: string;
@@ -25,21 +32,39 @@ export interface Memory {
   nextAction?: string;
 }
 
+const MEMORY = new Map<string, Memory>();
+
 export function updateMemory(userId: string, updates: Partial<Memory>) {
+  /* Clearing memory when an empty object is passed (used by tests) */
   if (Object.keys(updates).length === 0) {
     MEMORY.set(userId, {});
     return;
   }
+
   const current = MEMORY.get(userId) || {};
+
+  /* Smart-merge arrays with de-duplication */
+  if (updates.goals) {
+    current.goals = Array.from(new Set([...(current.goals || []), ...updates.goals]));
+  }
+  if (updates.avoidances) {
+    current.avoidances = Array.from(new Set([...(current.avoidances || []), ...updates.avoidances]));
+  }
+
+  /* Overwrite / add all other scalar fields */
   for (const [k, v] of Object.entries(updates)) {
-    if (v !== undefined && v !== null) {
-      // @ts-ignore
+    if (v !== undefined && v !== null && k !== 'goals' && k !== 'avoidances') {
+      // @ts-ignore – dynamic assignment
       current[k] = v;
     }
   }
+
   MEMORY.set(userId, current);
 }
 
+/* ------------------------------------------------------------------ */
+/*  Helper functions                                                  */
+/* ------------------------------------------------------------------ */
 function missingField(mem: Memory): keyof Memory | null {
   const order: (keyof Memory)[] = [
     'intent',
@@ -77,17 +102,21 @@ function followupQuestion(field: keyof Memory): string {
   }
 }
 
-async function extractFromLLM(messages: { role: 'system' | 'user' | 'assistant'; content: string }[]) {
+async function extractFromLLM(
+  messages: { role: 'system' | 'user' | 'assistant'; content: string }[]
+) {
   if (!openai) throw new Error('OpenAI client not initialized');
-  const model = process.env.OPENAI_MODEL || 'gpt-4o-mini';
   const res = await openai.chat.completions.create({
-    model,
+    model: OPENAI_MODEL,
     temperature: 0,
     messages
   });
   return res.choices[0].message?.content || '{}';
 }
 
+/* ------------------------------------------------------------------ */
+/*  Public API                                                        */
+/* ------------------------------------------------------------------ */
 export async function handleMessage(
   userId: string,
   history: { role: 'user' | 'assistant'; content: string }[],
@@ -98,7 +127,8 @@ export async function handleMessage(
   const systemPrompt =
     'You extract structured fields from chat messages. ' +
     'Return ONLY JSON with any of these keys if present: ' +
-    'energyLevel (low|medium|high), mood, goals, avoidances, intent, priority (low|med|high), deadline, durationMinutes, nextAction.';
+    'energyLevel (low|medium|high), mood, goals, avoidances, intent, priority (low|med|high), ' +
+    'deadline, durationMinutes, nextAction.';
 
   const messages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
     { role: 'system', content: systemPrompt + '\nKnown memory: ' + JSON.stringify(memory) },
@@ -106,14 +136,22 @@ export async function handleMessage(
     { role: 'user', content: userInput }
   ];
 
-  const content = await extractFromLLM(messages);
+  const raw = await extractFromLLM(messages);
+
+  /* Attempt to parse the assistant’s JSON */
   let parsed: Partial<Memory> = {};
   try {
-    parsed = JSON.parse(content);
-  } catch {}
+    parsed = JSON.parse(raw);
+  } catch {
+    /* ignore parse errors – treat as empty update */
+  }
 
   updateMemory(userId, parsed);
   const updated = MEMORY.get(userId)!;
+
+  /* ---------------------------------------------------------------- */
+  /*  Follow-up or final structured payload                           */
+  /* ---------------------------------------------------------------- */
   const missing = missingField(updated);
   if (missing) {
     return 'FollowUp: ' + followupQuestion(missing);
@@ -136,7 +174,8 @@ export async function handleMessage(
       durationMinutes: updated.durationMinutes ?? null,
       priority: updated.priority!
     },
-    nextAction: updated.nextAction || ''
+    nextAction: updated.nextAction || updated.intent || ''
   };
+
   return JSON.stringify(result);
 }
