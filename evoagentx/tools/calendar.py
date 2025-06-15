@@ -22,6 +22,7 @@ class CalendarTool(Tool):
     def update_event(self, event_id: int, title: str, start: str, end: str) -> Dict[str, Any]:
         return update_event(event_id, title, start, end)
 
+
     def get_tools(self) -> List[Callable]:
         return [self.get_today, self.add_event, self.remove_event, self.update_event]
 
@@ -32,6 +33,7 @@ class CalendarTool(Tool):
                 "function": {
                     "name": "get_today",
                     "description": "Get today's calendar events",
+
                     "parameters": {"type": "object", "properties": {}, "required": []},
                 },
             },
@@ -61,6 +63,7 @@ class CalendarTool(Tool):
                         "properties": {
                             "event_id": {"type": "integer", "description": "Event identifier"}
                         },
+
                         "required": ["event_id"],
                     },
                 },
@@ -77,6 +80,7 @@ class CalendarTool(Tool):
                             "title": {"type": "string", "description": "Event title"},
                             "start": {"type": "string", "description": "Start time ISO"},
                             "end": {"type": "string", "description": "End time ISO"},
+
                         },
                         "required": ["event_id", "title", "start", "end"],
                     },
@@ -91,3 +95,4 @@ class CalendarTool(Tool):
             "Remove a calendar event",
             "Update a calendar event",
         ]
+
