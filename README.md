@@ -91,10 +91,24 @@ conda activate evoagentx
 
 # Install the package
 pip install -r requirements.txt
-# OR install in development mode
+# Or install in development mode
 pip install -e .
 ```
 </details>
+
+## Setup
+
+Before running any scripts or examples, install the project dependencies:
+
+```bash
+pip install -e .[dev]
+# or install from requirements
+pip install -r requirements.txt
+```
+
+This installs optional packages such as `python-dotenv`. The
+`run_evoagentx.py` script relies on `load_dotenv()` to read your `.env`
+file, so these dependencies must be installed first.
 
 ## LLM Configuration
 
