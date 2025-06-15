@@ -22,3 +22,12 @@ class EventCreate(EventBase):
 
 class Event(EventBase):
     id: int
+
+
+class CalendarEvent(BaseModel):
+    """Input schema for creating macOS Calendar events."""
+
+    title: str
+    start: str
+    end: str
+    calendar_name: str = "Home"
