@@ -10,6 +10,7 @@ from .calendar_store import calendar_store
 calendar_router = APIRouter(prefix="/calendar")
 
 
+
 def create_calendar_event(title: str, start: str, end: str, calendar_name: str = "Home") -> None:
     """Create a macOS Calendar event via AppleScript."""
     start_dt = datetime.fromisoformat(start)
@@ -50,6 +51,7 @@ def delete_event(event_id: int):
 
 
 @calendar_router.post("/add-events")
+
 def add_events(events: list[CalendarEvent]):
     """Add multiple events to the macOS Calendar."""
 

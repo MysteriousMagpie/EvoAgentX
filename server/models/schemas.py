@@ -27,6 +27,7 @@ class Event(EventBase):
 
 class CalendarEvent(BaseModel):
 
+
     """Event information for adding to the macOS Calendar."""
 
     title: str
