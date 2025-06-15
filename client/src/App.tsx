@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import OutputPanel from './components/OutputPanel';
 import Loader from './components/Loader';
 
 function App() {
@@ -38,6 +39,7 @@ function App() {
       />
       <br />
       <button onClick={run}>Run</button>
+      <OutputPanel output={output} />
       {loading && <Loader />}
       {error && <p className="text-red-600 mt-2">{error}</p>}
       <pre>{output}</pre>
