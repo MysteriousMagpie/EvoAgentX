@@ -1,40 +1,27 @@
-from typing import List, Callable, Dict, Any
-from pydantic import Field
-
+from typing import Any, Callable, Dict, List
 from .tool import Tool
-from server.models.schemas import EventCreate
+from ..utils.calendar import get_today_events, add_event, remove_event, update_event
 
-def _store():
-    from server.api.calendar_store import calendar_store
-    return calendar_store
 
 class CalendarTool(Tool):
-    """Simple tool for interacting with the built-in calendar store."""
+    """Tool providing calendar operations."""
 
-    name: str = "calendar"
+    def __init__(self, name: str = "calendar", **kwargs):
+        super().__init__(name=name, **kwargs)
 
-    def get_today(self) -> List[dict]:
-        """Return today's events as a list of dictionaries."""
-        store = _store()
-        return [e.dict() for e in store.list_today()]
+    def get_today(self) -> List[Dict[str, Any]]:
+        return get_today_events()
 
-    def add_event(self, title: str, start: str, end: str) -> dict:
-        """Add an event to the calendar."""
-        store = _store()
-        event = EventCreate(title=title, start=start, end=end)
-        return store.add(event).dict()
+    def add_event(self, title: str, start: str, end: str) -> Dict[str, Any]:
+        return add_event(title, start, end)
 
-    def remove_event(self, event_id: int) -> dict:
-        """Remove an event from the calendar."""
-        store = _store()
-        store.delete(event_id)
-        return {"deleted": event_id}
+    def remove_event(self, event_id: int) -> Dict[str, Any]:
+        remove_event(event_id)
+        return {"ok": True}
 
-    def update_event(self, event_id: int, title: str, start: str, end: str) -> dict:
-        """Update an existing calendar event."""
-        store = _store()
-        event = EventCreate(title=title, start=start, end=end)
-        return store.update(event_id, event).dict()
+    def update_event(self, event_id: int, title: str, start: str, end: str) -> Dict[str, Any]:
+        return update_event(event_id, title, start, end)
+
 
     def get_tools(self) -> List[Callable]:
         return [self.get_today, self.add_event, self.remove_event, self.update_event]
@@ -45,7 +32,8 @@ class CalendarTool(Tool):
                 "type": "function",
                 "function": {
                     "name": "get_today",
-                    "description": "Return today's calendar events.",
+                    "description": "Get today's calendar events",
+
                     "parameters": {"type": "object", "properties": {}, "required": []},
                 },
             },
@@ -53,13 +41,13 @@ class CalendarTool(Tool):
                 "type": "function",
                 "function": {
                     "name": "add_event",
-                    "description": "Add a calendar event.",
+                    "description": "Add a calendar event",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "title": {"type": "string"},
-                            "start": {"type": "string"},
-                            "end": {"type": "string"},
+                            "title": {"type": "string", "description": "Event title"},
+                            "start": {"type": "string", "description": "Start time ISO"},
+                            "end": {"type": "string", "description": "End time ISO"},
                         },
                         "required": ["title", "start", "end"],
                     },
@@ -69,10 +57,13 @@ class CalendarTool(Tool):
                 "type": "function",
                 "function": {
                     "name": "remove_event",
-                    "description": "Remove a calendar event by id.",
+                    "description": "Remove a calendar event",
                     "parameters": {
                         "type": "object",
-                        "properties": {"event_id": {"type": "integer"}},
+                        "properties": {
+                            "event_id": {"type": "integer", "description": "Event identifier"}
+                        },
+
                         "required": ["event_id"],
                     },
                 },
@@ -81,14 +72,15 @@ class CalendarTool(Tool):
                 "type": "function",
                 "function": {
                     "name": "update_event",
-                    "description": "Update an existing calendar event.",
+                    "description": "Update a calendar event",
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "event_id": {"type": "integer"},
-                            "title": {"type": "string"},
-                            "start": {"type": "string"},
-                            "end": {"type": "string"},
+                            "event_id": {"type": "integer", "description": "Event identifier"},
+                            "title": {"type": "string", "description": "Event title"},
+                            "start": {"type": "string", "description": "Start time ISO"},
+                            "end": {"type": "string", "description": "End time ISO"},
+
                         },
                         "required": ["event_id", "title", "start", "end"],
                     },
@@ -97,4 +89,10 @@ class CalendarTool(Tool):
         ]
 
     def get_tool_descriptions(self) -> List[str]:
-        return ["Calendar management tool providing today's events and update operations."]
+        return [
+            "Get today's calendar events",
+            "Add a calendar event",
+            "Remove a calendar event",
+            "Update a calendar event",
+        ]
+
