@@ -8,8 +8,8 @@ from .lcb_utils.code_generation import (
     CodeGenerationProblem, 
     load_code_generation_dataset
 )
-from .lcb_utils.output_prediction import (
-    OutputPredictionProblem,
+from .lcb_utils.test_output_prediction import (
+    TestOutputPredictionProblem, 
     load_test_prediction_dataset
 )
 from .lcb_utils.code_execution import (
@@ -94,7 +94,7 @@ class LiveCodeBench(CodingBenchmark):
             )
         elif self.scenario == "test_output_prediction":
             logger.info(f"Loading test output prediction dataset from {self.path}.")
-            data: List[OutputPredictionProblem] = load_test_prediction_dataset(cache_dir=self.path)
+            data: List[TestOutputPredictionProblem] = load_test_prediction_dataset(cache_dir=self.path)
         elif self.scenario == "code_execution":
             logger.info(f"Loading code execution dataset from {self.path}.")
             data: List[CodeExecutionProblem] = load_code_execution_dataset(cache_dir=self.path)
@@ -103,10 +103,10 @@ class LiveCodeBench(CodingBenchmark):
 
         return data 
     
-    def _get_id(self, example: Union[CodeGenerationProblem, OutputPredictionProblem]) -> str:
+    def _get_id(self, example: Union[CodeGenerationProblem, TestOutputPredictionProblem]) -> str:
         return example.question_id  
     
-    def _get_label(self, example: Union[CodeGenerationProblem, OutputPredictionProblem]) -> dict:
+    def _get_label(self, example: Union[CodeGenerationProblem, TestOutputPredictionProblem]) -> dict:
         return example.get_evaluation_sample()
     
     def evaluate(self, prediction: Any, label: Any) -> dict:

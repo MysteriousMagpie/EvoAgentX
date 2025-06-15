@@ -6,7 +6,7 @@ import tempfile
 from datasets import load_from_disk 
 from evoagentx.benchmark.livecodebench import LiveCodeBench
 from evoagentx.benchmark.lcb_utils.code_generation import CodeGenerationProblem
-from evoagentx.benchmark.lcb_utils.output_prediction import OutputPredictionProblem
+from evoagentx.benchmark.lcb_utils.test_output_prediction import TestOutputPredictionProblem
 from evoagentx.benchmark.lcb_utils.code_execution import CodeExecutionProblem
 from tests.src.benchmark.lcb_solutions import (
     codegen_solution, codegen_solution2, codegen_solution3,
@@ -49,7 +49,7 @@ class TestLiveCodeBench(unittest.TestCase):
 
     @patch("evoagentx.benchmark.livecodebench.load_test_prediction_dataset")
     def test_test_output_prediction(self, mock_load_dataset):
-        mock_load_dataset.return_value = [OutputPredictionProblem(**p) for p in self.test_output_prediction_samples]
+        mock_load_dataset.return_value = [TestOutputPredictionProblem(**p) for p in self.test_output_prediction_samples]
 
         benchmark = LiveCodeBench(scenario="test_output_prediction")
         test_data = benchmark.get_test_data()

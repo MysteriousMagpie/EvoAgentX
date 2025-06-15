@@ -1,24 +1,59 @@
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
-import Dashboard from './Dashboard';
+import { useState } from 'react';
+import OutputPanel from './components/OutputPanel';
+import Loader from './components/Loader';
 
-export default function App() {
+function App() {
+  const [goal, setGoal] = useState('');
+  const [output, setOutput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const run = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('http://localhost:8000/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goal })
+      });
+      if (!res.ok) throw new Error(`Status ${res.status}`);
+      const data = await res.json();
+      setOutput(data.output);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <BrowserRouter>
-      <div className="flex h-screen">
-        {/* sidebar */}
-        <nav className="w-52 border-r p-4 space-y-2">
-          <NavLink to="/" className="block">Agent Hub</NavLink>
-          {/* future links */}
-        </nav>
+    <div style={{ padding: '1rem' }}>
+      <h1>EvoAgentX</h1>
+      <textarea
+        value={goal}
+        onChange={(e) => setGoal(e.target.value)}
+        placeholder="Enter goal"
+        rows={4}
+        cols={60}
+      />
+      <br />
+      <button
+        onClick={run}
+        disabled={goal.trim().length < 10 || loading}
+        className={`px-4 py-2 rounded-md border ${
+          goal.trim().length < 10 ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-500 text-white'
+        }`}
+      >
+        {loading ? 'Running…' : 'Run'}
+      </button>
 
-        {/* main */}
-        <div className="flex-1 p-8 overflow-y-auto">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            {/* <Route path="/history" element={<History />} /> */}
-          </Routes>
-        </div>
-      </div>
-    </BrowserRouter>
+      <OutputPanel output={output} />
+      {loading && <Loader />}
+      {error && <p className="text-red-600 mt-2">{error}</p>}
+      <pre>{output}</pre>
+    </div>
   );
 }
+
+export default App;
