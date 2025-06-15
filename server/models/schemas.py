@@ -1,3 +1,4 @@
+from datetime import datetime
 from pydantic import BaseModel
 
 
@@ -22,3 +23,12 @@ class EventCreate(EventBase):
 
 class Event(EventBase):
     id: int
+
+
+class CalendarEvent(BaseModel):
+    """Schema for adding events to macOS Calendar."""
+
+    title: str
+    start: datetime
+    end: datetime
+    calendar_name: str = "Home"
