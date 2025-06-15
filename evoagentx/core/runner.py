@@ -1,4 +1,3 @@
-import asyncio
 from evoagentx.models import OpenAILLMConfig, OpenAILLM
 from evoagentx.workflow import WorkFlowGenerator, WorkFlowGraph, WorkFlow
 from evoagentx.agents import AgentManager
@@ -8,9 +7,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-def get_today_events():
-    from server.api.calendar_store import calendar_store
-    return [e.dict() for e in calendar_store.list_today()]
 
 async def run_workflow_async(goal: str) -> str:
     """
