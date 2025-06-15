@@ -371,6 +371,7 @@ cd client
 pnpm install
 pnpm dev
 ```
+The `client/` directory contains a full Vite + React + TypeScript project with its own `package.json`.
 
 
 ## 📚 Acknowledgements 
