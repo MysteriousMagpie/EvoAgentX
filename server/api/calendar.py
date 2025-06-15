@@ -2,12 +2,13 @@ from fastapi import APIRouter, HTTPException
 import subprocess
 from datetime import datetime
 
+from server.models.schemas import Event, EventCreate, MacCalendarEvent
 
-from server.models.schemas import CalendarEvent, Event, EventCreate
 from server.core.macos_calendar import create_calendar_event
 from .calendar_store import calendar_store
 
 calendar_router = APIRouter(prefix="/calendar")
+
 
 
 def create_calendar_event(title: str, start: str, end: str, calendar_name: str = "Home") -> None:
@@ -50,8 +51,8 @@ def delete_event(event_id: int):
 
 
 @calendar_router.post("/add-events")
-def add_events(events: list[CalendarEvent]):
-    """Add multiple events to the macOS Calendar."""
+def add_events(events: list[MacCalendarEvent]):
+    """Add multiple events to macOS Calendar via AppleScript."""
 
     for e in events:
         create_calendar_event(e.title, e.start, e.end, e.calendar_name)

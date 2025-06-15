@@ -1,41 +1,76 @@
-jest.mock("openai", () => ({ __esModule: true, default: jest.fn() }));
-import { handleMessage } from './intelligenceParser';
-import OpenAI from 'openai';
+// parser.test.ts
+import { handleMessage, updateMemory, setOpenAIClient } from './parser';
+
+const mockedCreate = jest.fn();
+const mockClient = { chat: { completions: { create: mockedCreate } } } as any;
+
+beforeAll(() => {
+  setOpenAIClient(mockClient);
+});
 
 describe('handleMessage', () => {
-  const createMock = (response: any) => {
-    (OpenAI as any).mockClear();
-    (OpenAI as unknown as jest.Mock).mockImplementation(() => ({
-      chat: { completions: { create: jest.fn().mockResolvedValue({ choices: [{ message: { content: JSON.stringify(response) } }] }) } }
-    }));
-  };
-
   beforeEach(() => {
-    (OpenAI as unknown as jest.Mock) = jest.fn();
+    mockedCreate.mockReset();
+    updateMemory('u', {});       // clear memory before each test
   });
 
-  test('complete in one go', async () => {
-    createMock({
-      energyLevel: 'high',
-      mood: 'excited',
-      goals: ['build strength'],
-      avoidances: ['injury'],
-      intent: 'start workout',
-      priority: 'high'
+  test('complete in one turn', async () => {
+    mockedCreate.mockResolvedValueOnce({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            energyLevel: 'high',
+            mood: 'excited',
+            goals: ['finish my project'],
+            avoidances: ['distractions'],
+            intent: 'plan tasks',
+            priority: 'high',
+            nextAction: 'start planning'
+          })
+        }
+      }]
     });
-    const result = await handleMessage('u1', [], 'I want to start workout');
-    expect(result).toContain('"meta"');
-    expect(result).toContain('"energyLevel"');
+
+    const result = await handleMessage('u', [], 'all data');
+    const obj = JSON.parse(result);
+
+    expect(obj.context.energyLevel).toBe('high');
+    expect(obj.task.intent).toBe('plan tasks');
   });
 
   test('needs follow-up then complete', async () => {
-    createMock({ intent: 'plan', priority: 'med' });
-    let result = await handleMessage('u2', [], 'I want to plan');
-    expect(result.startsWith('FollowUp:')).toBe(true);
+    // First call → incomplete info, expect follow-up
+    mockedCreate.mockResolvedValueOnce({
+      choices: [{ message: { content: JSON.stringify({ mood: 'tired' }) } }]
+    });
+    let reply = await handleMessage('u', [], 'just saying I am tired');
+    expect(reply.startsWith('FollowUp:')).toBe(true);
 
-    createMock({ goals: ['finish'], mood: 'ok', energyLevel: 'low', avoidances: ['delay'] });
-    result = await handleMessage('u2', [{ role: 'assistant', content: result }], 'My goal is to finish, energy is low, avoid delay.');
-    expect(result).toContain('"meta"');
-    expect(result).toContain('"intent"');
+    // Second call supplies the remaining fields
+    mockedCreate.mockResolvedValueOnce({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            energyLevel: 'low',
+            goals: ['rest'],
+            avoidances: ['work'],
+            intent: 'take a break',
+            priority: 'low'
+          })
+        }
+      }]
+    });
+    reply = await handleMessage(
+      'u',
+      [
+        { role: 'user', content: 'just saying I am tired' },
+        { role: 'assistant', content: reply }
+      ],
+      'I want to rest and avoid work'
+    );
+    const obj = JSON.parse(reply);
+
+    expect(obj.task.intent).toBe('take a break');
+    expect(obj.context.mood).toBe('tired');
   });
 });

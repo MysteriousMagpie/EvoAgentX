@@ -1,5 +1,6 @@
 from datetime import datetime
 from pydantic import BaseModel
+from datetime import datetime
 
 
 class RunRequest(BaseModel):
@@ -25,9 +26,9 @@ class Event(EventBase):
     id: int
 
 
-class CalendarEvent(BaseModel):
+class MacCalendarEvent(BaseModel):
+    """Schema for creating macOS Calendar events."""
 
-    """Event information for adding to the macOS Calendar."""
 
     title: str
     start: datetime
