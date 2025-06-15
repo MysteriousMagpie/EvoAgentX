@@ -1,21 +1,26 @@
-from __future__ import annotations
-
-import os
-from dotenv import load_dotenv
+import asyncio
 from evoagentx.models import OpenAILLMConfig, OpenAILLM
 from evoagentx.workflow import WorkFlowGenerator, WorkFlowGraph, WorkFlow
 from evoagentx.agents import AgentManager
+import os
+from dotenv import load_dotenv
 
+load_dotenv()
 
-def run_workflow(goal: str) -> str:
-    """Generate and execute a workflow for a given goal and return output."""
-    load_dotenv()
+async def run_workflow_async(goal: str) -> str:
+    """
+    Run EvoAgentX workflow asynchronously.
+    Raises ValueError if goal too short (handled by caller).
+    """
+    if len(goal.strip()) < 10:
+        raise ValueError("Goal must be at least 10 characters")
+
     openai_key = os.getenv("OPENAI_API_KEY")
 
     llm_config = OpenAILLMConfig(
         model="gpt-4o-mini",
         openai_key=openai_key,
-        stream=True,
+        stream=False,
         output_response=True,
         max_tokens=16000,
     )
@@ -28,5 +33,4 @@ def run_workflow(goal: str) -> str:
     agent_manager.add_agents_from_workflow(workflow_graph, llm_config=llm_config)
 
     workflow = WorkFlow(graph=workflow_graph, agent_manager=agent_manager, llm=llm)
-    output = workflow.execute()
-    return output
+    return await workflow.async_execute()

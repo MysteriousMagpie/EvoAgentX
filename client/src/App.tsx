@@ -38,7 +38,16 @@ function App() {
         cols={60}
       />
       <br />
-      <button onClick={run}>Run</button>
+      <button
+        onClick={run}
+        disabled={goal.trim().length < 10 || loading}
+        className={`px-4 py-2 rounded-md border ${
+          goal.trim().length < 10 ? 'bg-gray-300 cursor-not-allowed' : 'bg-blue-500 text-white'
+        }`}
+      >
+        {loading ? 'Running…' : 'Run'}
+      </button>
+
       <OutputPanel output={output} />
       {loading && <Loader />}
       {error && <p className="text-red-600 mt-2">{error}</p>}
