@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import GoalInput from './components/GoalInput';
-import OutputPanel from './components/OutputPanel';
-import Loader from './components/Loader';
+import GoalInput from '../components/GoalInput';
+import OutputPanel from '../components/OutputPanel';
+import Loader from '../components/Loader';
 
 export default function Dashboard() {
   const [output, setOutput] = useState('');
