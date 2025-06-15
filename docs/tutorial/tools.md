@@ -473,6 +473,31 @@ today = calendar.get_today()
 - `remove_event(event_id)` – delete an event
 - `update_event(event_id, title, start, end)` – modify an event
 
+### 4.3 Usage Example
+
+```python
+calendar = CalendarTool()
+
+# Retrieve today's events
+today = calendar.get_today()
+print(today)
+
+# Add a new entry
+event = calendar.add_event(
+    title="Team Sync",
+    start="2025-01-10T09:00:00",
+    end="2025-01-10T09:30:00",
+)
+
+# Update the entry later
+calendar.update_event(
+    event_id=event["id"],
+    title="Team Sync (updated)",
+    start="2025-01-10T09:00:00",
+    end="2025-01-10T10:00:00",
+)
+```
+
 ---
 
 ## 5. MCP Tools
