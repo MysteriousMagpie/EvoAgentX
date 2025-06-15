@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .api.run import router as run_router
 from .api.events import events_router
+from .api.calendar import calendar_router
 
 app = FastAPI()
 
@@ -16,6 +17,7 @@ app.add_middleware(
 
 app.include_router(run_router)
 app.include_router(events_router)
+app.include_router(calendar_router)
 
 if __name__ == "__main__":
     import uvicorn
