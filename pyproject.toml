@@ -75,6 +75,6 @@ Repository = "https://github.com/EvoAgentX/EvoAgentX"
 [tool.setuptools.packages.find]
 where = ["."]
 [tool.pytest.ini_options]
-addopts = "-q --cov --cov-config=.coveragerc --cov-report=term-missing --cov-branch"
+addopts = "-q --cov=evoagentx/utils --cov=evoagentx/optimizers --cov-report=term-missing --cov-branch"
 testpaths = ["tests"]
 
