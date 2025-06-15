@@ -119,3 +119,4 @@ examples/output/**
 debug/
 debug*.py
 logs/
+node_modules/
