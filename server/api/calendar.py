@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
-from server.models.schemas import Event, EventCreate
+from server.models.schemas import CalendarEvent, Event, EventCreate
+from server.core.macos_calendar import create_calendar_event
 from .calendar_store import calendar_store
 
 calendar_router = APIRouter(prefix="/calendar")
@@ -27,3 +28,12 @@ def delete_event(event_id: int):
         return {"ok": True}
     except KeyError:
         raise HTTPException(status_code=404, detail="Event not found")
+
+
+@calendar_router.post("/add-events")
+def add_events(events: list[CalendarEvent]):
+    """Add multiple events to the macOS Calendar."""
+
+    for e in events:
+        create_calendar_event(e.title, e.start, e.end, e.calendar_name)
+    return {"added": len(events)}
