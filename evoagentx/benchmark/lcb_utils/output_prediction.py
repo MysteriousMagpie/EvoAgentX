@@ -14,7 +14,7 @@ class Test:
 
 
 @dataclass
-class TestOutputPredictionProblem:
+class OutputPredictionProblem:
     question_title: str
     question_content: str
     question_id: str
@@ -59,9 +59,9 @@ class TestOutputPredictionProblem:
         }
 
 
-def load_test_prediction_dataset(release_version="release_v1", cache_dir: str = None,) -> list[TestOutputPredictionProblem]:
+def load_test_prediction_dataset(release_version="release_v1", cache_dir: str = None,) -> list[OutputPredictionProblem]:
     dataset = load_dataset("livecodebench/test_generation", split="test", trust_remote_code=True, cache_dir=cache_dir)  # type: ignore
-    dataset = [TestOutputPredictionProblem(**d) for d in dataset]
+    dataset = [OutputPredictionProblem(**d) for d in dataset]
     # print(f"Loaded {len(dataset)} prediction problems")
     return dataset
 
