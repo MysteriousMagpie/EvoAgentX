@@ -1,0 +1,15 @@
+[run]
+branch = True
+source =
+    evoagentx/utils
+    evoagentx/optimizers
+
+[report]
+omit =
+    */tests/*
+    evoagentx/prompts/*
+    evoagentx/rag/*
+    evoagentx/tools/*
+    evoagentx/workflow/*
+    evoagentx/storages/*
+    evoagentx/**/__init__.py
