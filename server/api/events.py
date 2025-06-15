@@ -1,16 +1,17 @@
 from fastapi import APIRouter, HTTPException
 from server.models.schemas import Event, EventCreate
 
-router = APIRouter()
+# Router with a prefix so all routes share the "/events" base path
+events_router = APIRouter(prefix="/events")
 
 _events: list[Event] = []
 _next_id = 1
 
-@router.get("/events", response_model=list[Event])
+@events_router.get("", response_model=list[Event])
 def list_events():
     return _events
 
-@router.post("/events", response_model=Event)
+@events_router.post("", response_model=Event)
 def add_event(event: EventCreate):
     global _next_id
     new = Event(id=_next_id, **event.dict())
@@ -18,7 +19,7 @@ def add_event(event: EventCreate):
     _next_id += 1
     return new
 
-@router.put("/events/{event_id}", response_model=Event)
+@events_router.put("/{event_id}", response_model=Event)
 def update_event(event_id: int, event: EventCreate):
     for e in _events:
         if e.id == event_id:
@@ -28,7 +29,7 @@ def update_event(event_id: int, event: EventCreate):
             return e
     raise HTTPException(status_code=404, detail="Event not found")
 
-@router.delete("/events/{event_id}")
+@events_router.delete("/{event_id}")
 def delete_event(event_id: int):
     for i, e in enumerate(_events):
         if e.id == event_id:
