@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import OutputPanel from './components/OutputPanel';
 
 function App() {
   const [goal, setGoal] = useState('');
@@ -26,7 +27,7 @@ function App() {
       />
       <br />
       <button onClick={run}>Run</button>
-      <pre>{output}</pre>
+      <OutputPanel output={output} />
     </div>
   );
 }
