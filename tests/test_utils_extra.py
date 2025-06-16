@@ -1,26 +1,14 @@
 # tests/test_utils_extra.py
-import sys, types, datetime, pytest
+import datetime
+import warnings
+import pytest
+from evoagentx.storages.storages_config import DBConfig, VectorStoreConfig
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from typing import cast
-
-# ------------------------------------------------------------------
-#  Inject a minimal fake storages.storages_config  ❱ breaks the cycle
-# ------------------------------------------------------------------
-stub_cfg = types.ModuleType("evoagentx.storages.storages_config")
-class _DummyCfg:        # just needs a model_dump method for factory.create
-    def model_dump(self): return {}
-
-stub_cfg.__dict__["DBConfig"] = _DummyCfg
-stub_cfg.__dict__["VectorStoreConfig"] = _DummyCfg
-
-# also make sure the parent package exists in sys.modules
-sys.modules.setdefault("evoagentx.storages", types.ModuleType("evoagentx.storages"))
-sys.modules["evoagentx.storages.storages_config"] = stub_cfg
-
-# NOW it’s safe to import factory
 from evoagentx.utils import factory
 from evoagentx.utils import calendar as cal
+warnings.filterwarnings("ignore", "`timeout`", DeprecationWarning)
 
 # ------------------------------------------------------------------
 #  FastAPI test-double for calendar utils (same as before)
@@ -73,13 +61,15 @@ def test_calendar_error_handling(monkeypatch):
 
 def test_factory_db_supported(monkeypatch):
     monkeypatch.setattr(factory, "load_class", lambda path: lambda **_: "db")
-    got = factory.DBStoreFactory.create("sqlite", cast(factory.DBConfig, _DummyCfg()))
+    cfg = DBConfig(db_name="sqlite", path=":memory:")
+    got = factory.DBStoreFactory.create("sqlite", config=cfg)
     assert got == "db"
 
 def test_factory_vector_and_graph():
-    assert factory.VectorStoreFactory().create(cast(factory.VectorStoreConfig, _DummyCfg())) is None
-    assert factory.GraphStoreFactory.create(cast(factory.VectorStoreConfig, _DummyCfg())) is None
+    cfg = VectorStoreConfig()
+    assert factory.VectorStoreFactory().create(config=cfg) is None
+    assert factory.GraphStoreFactory.create(config=cfg) is None
 def test_factory_db_unsupported():
     with pytest.raises(ValueError):
-        factory.DBStoreFactory.create("unknown", cast(factory.DBConfig, _DummyCfg()))
-        factory.DBStoreFactory.create("unknown", cast(factory.DBConfig, _DummyCfg()))
+        cfg = DBConfig(db_name="unknown")
+        factory.DBStoreFactory.create("unknown", config=cfg)

@@ -15,6 +15,9 @@ omit =
     evoagentx/storages/*
     evoagentx/tools/*
     evoagentx/workflow/*
+    evoagentx/core/*
+    server/*
+    run_evoagentx.py
     evoagentx/config.py
 
 

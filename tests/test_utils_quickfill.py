@@ -11,18 +11,8 @@ import sys
 import textwrap
 import types
 import pytest
-
-# Provide minimal storage stubs to satisfy factory imports and avoid heavy deps
-cfg_mod = types.ModuleType("evoagentx.storages.storages_config")
-
-class DBConfig: ...
-
-class VectorStoreConfig: ...
-
-cfg_mod.DBConfig = DBConfig
-cfg_mod.VectorStoreConfig = VectorStoreConfig
-sys.modules.setdefault("evoagentx.storages", types.ModuleType("evoagentx.storages"))
-sys.modules["evoagentx.storages.storages_config"] = cfg_mod
+from evoagentx.storages.storages_config import DBConfig, VectorStoreConfig
+import warnings
 
 # ----------------------------------------------------------------------
 # utils.utils
@@ -52,6 +42,7 @@ def test_normalize_text_variants(raw, expected):
 # utils.sanitize  – we just want to tick the happy path & dependency graph.
 # ----------------------------------------------------------------------
 from evoagentx.utils import sanitize
+warnings.filterwarnings("ignore", "`timeout`", DeprecationWarning)
 
 SAMPLE = textwrap.dedent(
     """
@@ -81,16 +72,10 @@ def test_sanitize_entrypoint():
 from evoagentx.utils import factory
 
 
-class _DummyCfg(dict):
-    """Minimal config with .model_dump for factory helpers."""
-
-    def model_dump(self):
-        return {}
-
-
 def test_db_factory_unsupported():
     with pytest.raises(ValueError):
-        factory.DBStoreFactory.create("oracle", _DummyCfg())
+        cfg = DBConfig(db_name="oracle")
+        factory.DBStoreFactory.create("oracle", config=cfg)
 
 
 def test_vector_factory_stub(monkeypatch):
@@ -112,5 +97,6 @@ def test_vector_factory_stub(monkeypatch):
     )
 
     cfg = _DummyCfg()
+
     got = factory.VectorStoreFactory.create(config=cfg)
     assert got == "qdrant-instance"
