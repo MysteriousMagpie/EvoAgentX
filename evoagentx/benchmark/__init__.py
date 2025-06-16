@@ -18,7 +18,6 @@ __all__ = [
     "AFlowHumanEval", 
     "AFlowMBPP", 
     "AFlowHotPotQA",
-    "AFlowGSM8K"
+    "AFlowGSM8K",
+    "TextGenBenchmark",
 ]
-
-__all__.append("TextGenBenchmark")

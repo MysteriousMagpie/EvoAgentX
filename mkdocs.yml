@@ -205,7 +205,8 @@ plugins:
               - Workflow: api/workflow.md
               - Storages: api/storages.md
               - Memory: api/memory.md
-              - Tools: api/tools.md 
+              - Tools: api/tools.md
+              - Docker Interpreter: api/docker_interpreter.md
               - Actions: api/actions.md
               - Benchmark: api/benchmark.md
               - Evaluators: api/evaluators.md
@@ -244,7 +245,8 @@ plugins:
               - 工作流接口: api/workflow.md
               - 存储模块: api/storages.md
               - 记忆模块: api/memory.md
-              - 工具集接口: api/tools.md 
+              - 工具集接口: api/tools.md
+              - Docker 解释器: api/docker_interpreter.md
               - 动作接口: api/actions.md
               - 基准测试接口: api/benchmark.md
               - 评估器接口: api/evaluators.md
