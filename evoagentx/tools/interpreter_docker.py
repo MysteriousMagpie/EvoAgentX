@@ -154,13 +154,20 @@ class DockerInterpreter(BaseInterpreter):
             raise RuntimeError(f"Docker daemon is not running: {e}")
 
         # Run the container using the image with resource limits
+        try:
+            cpus = float(self.limits.cpus)
+            if cpus <= 0:
+                raise ValueError
+        except Exception:
+            raise ValueError(f"Invalid CPU limit: {self.limits.cpus}")
+
         self.container = self.client.containers.run(
             image_tag,
             detach=True,
             command=self.container_command,
             working_dir=self.container_directory,
             mem_limit=self.limits.memory,
-            cpus=self.limits.cpus,
+            nano_cpus=int(cpus * 1_000_000_000),
             pids_limit=self.limits.pids,
         )
 
