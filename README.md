@@ -11,6 +11,7 @@
 
 <div align="center">
 ![CI](https://github.com/EvoAgentX/EvoAgentX/actions/workflows/ci.yml/badge.svg)
+[![Coverage](https://img.shields.io/badge/coverage-branch--80%25-brightgreen)](./.github/workflows/ci.yml)
 
 [![EvoAgentX Homepage](https://img.shields.io/badge/EvoAgentX-Homepage-blue?logo=homebridge)](https://evoagentx.org/)
 [![Docs](https://img.shields.io/badge/-Documentation-0A66C2?logo=readthedocs&logoColor=white&color=7289DA&labelColor=grey)](https://EvoAgentX.github.io/EvoAgentX/)
