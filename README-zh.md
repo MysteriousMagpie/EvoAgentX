@@ -96,6 +96,10 @@ pip install -e .
 ```
 </details>
 
+`intelligence-parser/` 文件夹包含独立的 TypeScript 包，用于解析对话信息。
+进入这个目录，运行 `npm install` 安装依赖，然后使用 `npm test` 运行测试。
+
+
 ## LLM配置
 
 ### API密钥配置 

@@ -100,6 +100,10 @@ pip install -e .
 ```
 </details>
 
+The `intelligence-parser/` folder contains a standalone TypeScript package for parsing chat messages.
+Run `npm install` inside that directory to install its dependencies and `npm test` to execute the tests.
+
+
 ## Setup
 
 Before running any scripts or examples, install the project dependencies:

@@ -23,6 +23,12 @@ pip install -e .[dev]
 pip install -r requirements.txt
 ```
 
+Install the Node dependencies for the intelligence-parser package:
+```bash
+cd intelligence-parser
+npm install
+```
+
 Set your `OPENAI_API_KEY` as described in the [Quickstart Guide](quickstart.md#api-key--llm-setup).
 
 ## Running Tests
