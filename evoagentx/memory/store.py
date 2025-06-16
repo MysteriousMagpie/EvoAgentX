@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Iterable
-from memory_object import MemoryObject
+from .memory_object import MemoryObject
 
 class MemoryStore(ABC):
     @abstractmethod
