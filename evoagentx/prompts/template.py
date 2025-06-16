@@ -4,6 +4,8 @@ from pydantic import Field
 from pydantic_core import PydanticUndefined
 from typing import Union, Optional, List, Any, Type
 
+from ..tools.tool import Tool
+
 from ..core.logging import logger 
 from ..core.module import BaseModule 
 from ..models.base_model import LLMOutputParser, PARSER_VALID_MODE 
@@ -14,7 +16,9 @@ class PromptTemplate(BaseModule):
     instruction: str = Field(description="The instruction that the LLM will follow.")
     context: Optional[str] = Field(default=None, description="Additional context that can help the LLM understand the instruction.")
     constraints: Optional[Union[List[str], str]] = Field(default=None, description="Constraints that the LLM must follow.")
-    tools: Optional[List[str]] = Field(default=None, description="Tools that the LLM can use.")
+    tools: Optional[List[Union[str, Tool]]] = Field(
+        default=None,
+        description="Tools that the LLM can use. May be descriptions or Tool objects.")
     demonstrations: Optional[List[dict]] = Field(default=None, description="Examples of how to use the instruction.")
     history: Optional[List[Any]] = Field(default=None, description="History of the conversation between the user and the LLM.")
 
@@ -48,7 +52,7 @@ class PromptTemplate(BaseModule):
     def get_constraints(self) -> Optional[Union[List[str], str]]:
         return self.constraints
     
-    def get_tools(self) -> Optional[List[str]]:
+    def get_tools(self) -> Optional[List[Union[str, Tool]]]:
         return self.tools
     
     def set_instruction(self, instruction: str):
@@ -66,7 +70,7 @@ class PromptTemplate(BaseModule):
     def set_constraints(self, constraints: Union[List[str], str]):
         self.set("constraints", constraints)
 
-    def set_tools(self, tools: List[str]):
+    def set_tools(self, tools: List[Union[str, Tool]]):
         self.set("tools", tools)
 
     def get_required_inputs_or_outputs(self, format: Type[LLMOutputParser]) -> List[str]:
@@ -180,9 +184,29 @@ class PromptTemplate(BaseModule):
     def render_tools(self) -> str:
         if not self.tools:
             return ""
-        # TODO: check the tool descriptions to be consistent with tool use
-        tools_str = "\n".join(f"- {tool}" for tool in self.tools)
-        return f"### Tools\nYou can use the following tools or capabilities (if applicable):\n{tools_str}\n" 
+        descriptions: List[str] = []
+        for tool in self.tools:
+            if isinstance(tool, Tool):
+                desc_list = tool.get_tool_descriptions()
+                try:
+                    tool_funcs = tool.get_tools()
+                except Exception:
+                    tool_funcs = []
+                if tool_funcs and len(desc_list) != len(tool_funcs):
+                    raise ValueError(
+                        f"Mismatch between descriptions and tools for {tool.name}: "
+                        f"{len(desc_list)} descriptions for {len(tool_funcs)} functions")
+                descriptions.extend(desc_list)
+            elif isinstance(tool, str):
+                descriptions.append(tool)
+            else:
+                raise TypeError(
+                    f"Invalid tool type {type(tool)}. Expected str or Tool instance")
+        tools_str = "\n".join(f"- {d}" for d in descriptions)
+        return (
+            "### Tools\n" "You can use the following tools or capabilities (if applicable):\n" +
+            f"{tools_str}\n"
+        )
     
     def render_constraints(self) -> str:
         if not self.constraints:
