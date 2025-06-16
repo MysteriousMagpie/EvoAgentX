@@ -26,3 +26,7 @@ Use the `runtime` argument when creating the interpreter. Unsupported values rai
 
 GPU images require a Docker setup with GPU support.
 
+When running on cgroup-v2 systems (e.g. GitHub Actions), Docker only enforces
+`--memory` if `--memory-swap` is also set. The interpreter sets this value equal
+to the memory limit to ensure an OOM kill when the cap is exceeded.
+
