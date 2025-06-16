@@ -34,3 +34,4 @@ If a request is ambiguous, ask clarifying questions. Provide diff-style outputs 
 # Expected Output Format
 Return only the updated or new code in a markdown code block. Use optional diff lines prefixed by `+` or `-` when referencing existing files.
 ```
+This configuration may be updated automatically by CodeAgent if its capabilities or scope evolve.
