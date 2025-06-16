@@ -5,6 +5,7 @@ from .mbpp import MBPP, AFlowMBPP
 from .math_benchmark import MATH
 from .humaneval import HumanEval, AFlowHumanEval
 from .livecodebench import LiveCodeBench
+from .text_gen_benchmark import TextGenBenchmark
 
 __all__ = [
     "NQ", 
@@ -16,6 +17,8 @@ __all__ = [
     "LiveCodeBench", 
     "AFlowHumanEval", 
     "AFlowMBPP", 
-    "AFlowHotPotQA", 
+    "AFlowHotPotQA",
     "AFlowGSM8K"
 ]
+
+__all__.append("TextGenBenchmark")
