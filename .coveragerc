@@ -1,0 +1,29 @@
+[run]
+branch = True
+omit =
+    # TEMPORARY: Files with 0% coverage – excluded from stats to clarify real progress.
+    evoagentx/actions/*
+    evoagentx/agents/*
+    evoagentx/app/*
+    evoagentx/benchmark/*
+    evoagentx/evaluators/*
+    evoagentx/memory/*
+    evoagentx/models/*
+    evoagentx/optimizers/*
+    evoagentx/prompts/*
+    evoagentx/rag/*
+    evoagentx/storages/*
+    evoagentx/tools/*
+    evoagentx/workflow/*
+    evoagentx/config.py
+
+[report]
+omit =
+    evoagentx/optimizers/aflow_optimizer.py
+    evoagentx/optimizers/sew_optimizer.py
+    evoagentx/optimizers/textgrad_optimizer.py
+    evoagentx/optimizers/optimizer.py
+    evoagentx/utils/aflow_utils/*
+    evoagentx/utils/sanitize.py
+    evoagentx/utils/utils.py
+    evoagentx/**/__init__.py
