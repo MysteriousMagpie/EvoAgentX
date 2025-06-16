@@ -96,7 +96,7 @@ def test_db_factory_unsupported():
 def test_vector_factory_stub(monkeypatch):
     # Pretend we had a qdrant backend; ensure load_class is invoked
     stub = types.ModuleType("mem0.vector_stores.qdrant")
-    stub.Qdrant = lambda **_: "qdrant-instance"
+    stub.Qdrant = lambda **kwargs: "qdrant-instance"
     monkeypatch.setitem(sys.modules, "mem0.vector_stores.qdrant", stub)
 
     monkeypatch.setattr(factory, "load_class", lambda path: stub.Qdrant)
@@ -104,9 +104,13 @@ def test_vector_factory_stub(monkeypatch):
     monkeypatch.setattr(
         factory.VectorStoreFactory,
         "create",
-        classmethod(lambda cls, cfg: factory.load_class("mem0.vector_stores.qdrant.Qdrant")()),
+        classmethod(
+            lambda cls, config=None: factory.load_class(
+                "mem0.vector_stores.qdrant.Qdrant"
+            )(config=config)
+        ),
     )
 
     cfg = _DummyCfg()
-    got = factory.VectorStoreFactory.create(cfg)
+    got = factory.VectorStoreFactory.create(config=cfg)
     assert got == "qdrant-instance"
