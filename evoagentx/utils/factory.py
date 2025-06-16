@@ -1,6 +1,8 @@
 import importlib
+from typing import TYPE_CHECKING
 
-from ..storages.storages_config import DBConfig, VectorStoreConfig
+if TYPE_CHECKING:  # pragma: no cover - only for type checking
+    from ..storages.storages_config import DBConfig, VectorStoreConfig
 
 
 def load_class(class_type: str):
@@ -33,7 +35,7 @@ class DBStoreFactory:
     }
 
     @classmethod
-    def create(cls, provider_name: str, config: DBConfig):
+    def create(cls, provider_name: str, config: 'DBConfig'):
         """
         Create a database store instance for the specified provider.
 
@@ -47,10 +49,13 @@ class DBStoreFactory:
         Raises:
             ValueError: If the provider is not supported.
         """
+        from ..storages import storages_config  # local import to avoid cycle
+
+        if isinstance(config, storages_config.DBConfig):
+            config = config.model_dump()
+
         class_type = cls.provider_to_class.get(provider_name)
         if class_type:
-            if not isinstance(config, dict):
-                config = config.model_dump()
             db_store_class = load_class(class_type)
             return db_store_class(**config)
         else:
@@ -69,7 +74,7 @@ class VectorStoreFactory:
     }
 
 
-    def create(cls, config: VectorStoreConfig):
+    def create(cls, config: 'VectorStoreConfig'):
         """
         Create a vector store instance based on the provided configuration.
 
@@ -79,8 +84,12 @@ class VectorStoreFactory:
         Returns:
             VectorStoreBase: An instance of the vector store.
         """
+        from ..storages import storages_config  # local import to avoid cycle
+        if isinstance(config, storages_config.VectorStoreConfig):
+            config = config.model_dump()
+
         # TODO: Implement vector store creation logic
-        pass
+        return None
 
 
 # Factory for creating graph store instances
@@ -95,7 +104,7 @@ class GraphStoreFactory:
     }
 
     @classmethod
-    def create(cls, config: VectorStoreConfig):
+    def create(cls, config: 'VectorStoreConfig'):
         """
         Create a graph store instance based on the provided configuration.
 
@@ -105,5 +114,9 @@ class GraphStoreFactory:
         Returns:
             GraphStoreBase: An instance of the graph store.
         """
+        from ..storages import storages_config  # local import to avoid cycle
+        if isinstance(config, storages_config.VectorStoreConfig):
+            config = config.model_dump()
+
         # TODO: Implement graph store creation logic
-        pass
+        return None

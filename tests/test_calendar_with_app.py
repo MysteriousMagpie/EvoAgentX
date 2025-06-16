@@ -2,6 +2,7 @@ import datetime
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 import pytest
+import warnings
 
 # ---- create a minimal clone of the production API ----
 app = FastAPI()
@@ -33,6 +34,7 @@ def update_event(event_id: str, payload: dict):
 
 # ---- the real unit-test --------------------------------
 from evoagentx.utils import calendar as cal_utils  # noqa: E402
+warnings.filterwarnings("ignore", "`timeout`", DeprecationWarning)
 
 @pytest.fixture(autouse=True)
 def _wire_requests_to_app(monkeypatch):
