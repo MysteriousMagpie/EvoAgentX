@@ -10,7 +10,9 @@
 </h2>
 
 <div align="center">
-![CI](https://github.com/EvoAgentX/EvoAgentX/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/MysteriousMagpie/EvoAgentX/actions/workflows/ci.yml/badge.svg)
+
+[![Coverage Status](https://img.shields.io/github/actions/workflow/status/MysteriousMagpie/EvoAgentX/coverage.yml?branch=main)](https://github.com/MysteriousMagpie/EvoAgentX/actions/workflows/coverage.yml)
 [![Coverage](https://img.shields.io/badge/coverage-branch--80%25-brightgreen)](./.github/workflows/ci.yml)
 
 [![EvoAgentX Homepage](https://img.shields.io/badge/EvoAgentX-Homepage-blue?logo=homebridge)](https://evoagentx.org/)
