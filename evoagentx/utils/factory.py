@@ -69,19 +69,17 @@ class VectorStoreFactory:
         "faiss":  "mem0.vector_stores.faiss.FAISS",
     }
 
-    @classmethod                     
-    def create(cls, provider: str, config: "VectorStoreConfig | dict"):
-        """
-        Create a vector store instance for the specified provider.
-        """
-        from ..storages import storages_config     # avoid circular import
+    @classmethod
+    def create(cls, config: "VectorStoreConfig | dict"):
+        """Create a vector store instance from the provided configuration."""
+        from ..storages import storages_config  # avoid circular import
 
-        # accept either a dataclass / pydantic model or plain dict
         if isinstance(config, storages_config.VectorStoreConfig):
-            cfg_dict   = config.model_dump()
-            provider   = config.provider           # keep single source of truth
+            cfg_dict = config.model_dump()
+            provider = config.provider
         else:
             cfg_dict = dict(config)
+            provider = cfg_dict.get("provider", "")
 
         class_path = cls.provider_to_class.get(provider)
         if not class_path:
