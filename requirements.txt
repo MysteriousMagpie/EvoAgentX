@@ -6,6 +6,7 @@ pytest-subtests
 pytest-json-report
 ruff
 
+fakeredis
 sympy
 stopit
 scipy

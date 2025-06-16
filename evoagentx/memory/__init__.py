@@ -5,6 +5,7 @@ from .memory_object import MemoryObject
 from .store import MemoryStore
 from .sqlite_store import SQLiteStore
 
+from .redis_store import RedisStore
 __all__ = [
     "BaseMemory",
     "ShortTermMemory",
@@ -13,4 +14,5 @@ __all__ = [
     "MemoryObject",
     "MemoryStore",
     "SQLiteStore",
+    "RedisStore",
 ]
