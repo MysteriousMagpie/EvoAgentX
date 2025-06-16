@@ -67,7 +67,8 @@ def test_factory_db_supported(monkeypatch):
 
 def test_factory_vector_and_graph():
     cfg = VectorStoreConfig()
-    assert factory.VectorStoreFactory().create(config=cfg) is None
+    with pytest.raises(ValueError):
+        factory.VectorStoreFactory.create(cfg)
     assert factory.GraphStoreFactory.create(config=cfg) is None
 def test_factory_db_unsupported():
     with pytest.raises(ValueError):

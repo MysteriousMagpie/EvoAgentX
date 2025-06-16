@@ -16,10 +16,12 @@ class DBConfig(BaseConfig):
 
 
 class VectorStoreConfig(BaseConfig):
-    """
-    Placeholder for settings related to vector databases (e.g., Qdrant, Chroma).
-    """
-    pass
+    """Configuration for vector database backends."""
+
+    provider: str = Field(
+        default="",
+        description="Name of the vector store provider (e.g., 'qdrant', 'chroma')",
+    )
 
 
 class GraphStoreConfig(BaseConfig):

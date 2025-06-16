@@ -82,6 +82,7 @@ def test_db_factory_unsupported():
 class _DummyCfg:
     # Define the necessary attributes and methods expected by the factory
     def __init__(self):
+        self.provider = "qdrant"
         self.some_attribute = "some_value"
 
 
@@ -113,12 +114,12 @@ def test_vector_factory_stub(monkeypatch):
                         lambda path: stub.Qdrant)
 
     # ------------------------------------------------------------------
-    # 3.  Monkey-patch VectorStoreFactory.create but keep its real
-    #     signature: (provider, config)
+    # 3.  Monkey-patch VectorStoreFactory.create with its real
+    #     signature: (config)
     # ------------------------------------------------------------------
-    def _fake_create(cls, provider: str, config=None):
-        # In the real factory `provider` decides which class to load.
-        assert provider == "qdrant"
+    def _fake_create(cls, config=None):
+        # Provider should be read from the config
+        assert getattr(config, "provider", None) == "qdrant"
         return factory.load_class(
             "mem0.vector_stores.qdrant.Qdrant"
         )()
@@ -131,5 +132,5 @@ def test_vector_factory_stub(monkeypatch):
     # 4.  Exercise the stubbed factory
     # ------------------------------------------------------------------
     cfg = _DummyCfg()
-    got = factory.VectorStoreFactory.create("qdrant", cfg)
+    got = factory.VectorStoreFactory.create(cfg)
     assert got == "qdrant-instance"
