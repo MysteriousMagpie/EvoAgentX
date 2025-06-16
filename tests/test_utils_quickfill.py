@@ -78,20 +78,58 @@ def test_db_factory_unsupported():
         factory.DBStoreFactory.create("oracle", config=cfg)
 
 
+# Add this class definition above the test
+class _DummyCfg:
+    # Define the necessary attributes and methods expected by the factory
+    def __init__(self):
+        self.some_attribute = "some_value"
+
+
 def test_vector_factory_stub(monkeypatch):
-    # Pretend we had a qdrant backend; ensure load_class is invoked
-    stub = types.ModuleType("mem0.vector_stores.qdrant")
-    stub.Qdrant = lambda **_: "qdrant-instance"
+    """
+    Emulate a qdrant backend and make sure VectorStoreFactory falls back
+    to it correctly.
+    """
+
+    # ------------------------------------------------------------------
+    # 1.  Build a minimal importable package hierarchy:
+    #     mem0 -> mem0.vector_stores -> mem0.vector_stores.qdrant
+    # ------------------------------------------------------------------
+    pkg_root = types.ModuleType("mem0")
+    pkg_sub  = types.ModuleType("mem0.vector_stores")
+    stub     = types.ModuleType("mem0.vector_stores.qdrant")
+
+    # concrete fake class returned by the factory
+    setattr(stub, "Qdrant", lambda **_: "qdrant-instance")
+
+    monkeypatch.setitem(sys.modules, "mem0", pkg_root)
+    monkeypatch.setitem(sys.modules, "mem0.vector_stores", pkg_sub)
     monkeypatch.setitem(sys.modules, "mem0.vector_stores.qdrant", stub)
 
-    monkeypatch.setattr(factory, "load_class", lambda path: stub.Qdrant)
-    # Replace create to mimic minimal implementation using load_class
-    monkeypatch.setattr(
-        factory.VectorStoreFactory,
-        "create",
-        classmethod(lambda cls, cfg: factory.load_class("mem0.vector_stores.qdrant.Qdrant")()),
-    )
+    # ------------------------------------------------------------------
+    # 2.  Replace factory.load_class so that it returns the fake class
+    # ------------------------------------------------------------------
+    monkeypatch.setattr(factory, "load_class",
+                        lambda path: stub.Qdrant)
 
-    cfg = VectorStoreConfig()
-    got = factory.VectorStoreFactory.create(config=cfg)
+    # ------------------------------------------------------------------
+    # 3.  Monkey-patch VectorStoreFactory.create but keep its real
+    #     signature: (provider, config)
+    # ------------------------------------------------------------------
+    def _fake_create(cls, provider: str, config=None):
+        # In the real factory `provider` decides which class to load.
+        assert provider == "qdrant"
+        return factory.load_class(
+            "mem0.vector_stores.qdrant.Qdrant"
+        )()
+
+    monkeypatch.setattr(factory.VectorStoreFactory,
+                        "create",
+                        classmethod(_fake_create))
+
+    # ------------------------------------------------------------------
+    # 4.  Exercise the stubbed factory
+    # ------------------------------------------------------------------
+    cfg = _DummyCfg()
+    got = factory.VectorStoreFactory.create("qdrant", cfg)
     assert got == "qdrant-instance"

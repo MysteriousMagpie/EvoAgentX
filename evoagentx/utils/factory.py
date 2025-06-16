@@ -63,34 +63,32 @@ class DBStoreFactory:
 
 
 class VectorStoreFactory:
-    """
-    Factory class for creating vector store instances based on configuration.
-    Maps provider names to specific vector store classes.
-    """
     provider_to_class = {
         "qdrant": "mem0.vector_stores.qdrant.Qdrant",
         "chroma": "mem0.vector_stores.chroma.ChromaDB",
-        "faiss": "mem0.vector_stores.faiss.FAISS",
+        "faiss":  "mem0.vector_stores.faiss.FAISS",
     }
 
-
-    def create(cls, config: 'VectorStoreConfig'):
+    @classmethod                     
+    def create(cls, provider: str, config: "VectorStoreConfig | dict"):
         """
-        Create a vector store instance based on the provided configuration.
-
-        Attributes:
-            config (VectorStoreConfig): Configuration for the vector store.
-
-        Returns:
-            VectorStoreBase: An instance of the vector store.
+        Create a vector store instance for the specified provider.
         """
-        from ..storages import storages_config  # local import to avoid cycle
+        from ..storages import storages_config     # avoid circular import
+
+        # accept either a dataclass / pydantic model or plain dict
         if isinstance(config, storages_config.VectorStoreConfig):
-            config = config.model_dump()
+            cfg_dict   = config.model_dump()
+            provider   = config.provider           # keep single source of truth
+        else:
+            cfg_dict = dict(config)
 
-        # TODO: Implement vector store creation logic
-        return None
+        class_path = cls.provider_to_class.get(provider)
+        if not class_path:
+            raise ValueError(f"Unsupported Vector-store provider: {provider}")
 
+        vec_cls = load_class(class_path)
+        return vec_cls(**cfg_dict)
 
 # Factory for creating graph store instances
 class GraphStoreFactory:
