@@ -29,6 +29,8 @@ from textgrad.autograd import StringBasedFunction
 from textgrad.loss import MultiFieldEvaluation, TextLoss
 from textgrad.optimizer import TextualGradientDescent
 
+from . import register_optimizer, Optimizer as RegistryOptimizer
+
 from ..prompts.optimizers.textgrad_optimizer import (
     CODE_LOSS_PROMPT,
     GENERAL_LOSS_PROMPT,
@@ -132,7 +134,8 @@ class TextGradAgent:
 
 
 
-class TextGradOptimizer(BaseModule):
+@register_optimizer("textgrad")
+class TextGradOptimizer(BaseModule, RegistryOptimizer):
     """Uses TextGrad to optimize agents' system prompts and instructions in a multi-agent workflow.
     For more information on TextGrad, see https://github.com/zou-group/textgrad.
     """
