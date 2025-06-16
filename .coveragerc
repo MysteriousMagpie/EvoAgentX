@@ -1,22 +1,5 @@
 [run]
 branch = True
-omit =
-    # TEMPORARY: Files with 0% coverage – excluded from stats to clarify real progress.
-    evoagentx/actions/*
-    evoagentx/agents/*
-    evoagentx/app/*
-    evoagentx/benchmark/*
-    evoagentx/evaluators/*
-    evoagentx/memory/*
-    evoagentx/models/*
-    evoagentx/optimizers/*
-    evoagentx/prompts/*
-    evoagentx/rag/*
-    evoagentx/storages/*
-    evoagentx/tools/*
-    evoagentx/workflow/*
-    evoagentx/config.py
-
 
 [report]
 omit =
