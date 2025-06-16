@@ -778,7 +778,10 @@ class SEWOptimizer(BaseOptimizer, RegistryOptimizer):
         if isinstance(graph, SequentialWorkFlowGraph):
             graph_info = graph.get_graph_info()
         elif isinstance(graph, ActionGraph):
-            # TODO check if the action graph is valid 
+            try:
+                graph.validate()
+            except ValueError as e:
+                raise ValueError(f"Invalid ActionGraph: {e}") from e
             graph_info = graph
         else:
             raise ValueError(f"Invalid graph type: {type(graph)}. The graph should be an instance of `SequentialWorkFlowGraph` or `ActionGraph`.")
@@ -801,8 +804,11 @@ class SEWOptimizer(BaseOptimizer, RegistryOptimizer):
         if isinstance(self.graph, SequentialWorkFlowGraph):
             graph = SequentialWorkFlowGraph.from_dict(self._snapshot[best_index]["graph"])
         elif isinstance(self.graph, ActionGraph):
-            # TODO check if the action graph is valid
             graph = self._snapshot[best_index]["graph"]
+            try:
+                graph.validate()
+            except ValueError as e:
+                raise ValueError(f"Invalid ActionGraph in snapshot: {e}") from e
         else:
             raise ValueError(f"Invalid graph type: {type(self.graph)}. The graph should be an instance of `SequentialWorkFlowGraph` or `ActionGraph`.")
         

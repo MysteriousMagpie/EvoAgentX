@@ -55,6 +55,41 @@ class ActionGraph(BaseModule):
             }
         }
         return config
+
+    def validate(self):
+        """Validate required fields and operators structure."""
+        missing_fields = []
+        if not getattr(self, "name", None):
+            missing_fields.append("name")
+        if not getattr(self, "description", None):
+            missing_fields.append("description")
+        if not getattr(self, "llm_config", None):
+            missing_fields.append("llm_config")
+        if missing_fields:
+            raise ValueError(f"ActionGraph is missing required fields: {missing_fields}")
+
+        operators = {}
+        for extra_name, extra_value in self.__pydantic_extra__.items():
+            if isinstance(extra_value, Operator):
+                operators[extra_name] = extra_value
+
+        if not operators:
+            raise ValueError("ActionGraph must contain at least one Operator")
+
+        for op_name, op in operators.items():
+            op_missing = []
+            if not getattr(op, "name", None):
+                op_missing.append("name")
+            if not getattr(op, "description", None):
+                op_missing.append("description")
+            if getattr(op, "interface", None) is None:
+                op_missing.append("interface")
+            if getattr(op, "prompt", None) is None:
+                op_missing.append("prompt")
+            if op_missing:
+                raise ValueError(f"Operator '{op_name}' is missing fields: {op_missing}")
+
+        return True
     
     @classmethod
     def load_module(cls, path: str, llm_config: LLMConfig = None, **kwargs) -> Dict:
