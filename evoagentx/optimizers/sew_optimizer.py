@@ -8,7 +8,8 @@ from copy import deepcopy
 import xml.etree.ElementTree as ET
 from typing import Literal, Union, Optional, List
 
-from .optimizer import Optimizer
+from . import register_optimizer, Optimizer as RegistryOptimizer
+from .optimizer import Optimizer as BaseOptimizer
 from ..core.logging import logger
 from ..models.base_model import BaseLLM 
 from ..benchmark.benchmark import Benchmark
@@ -653,7 +654,8 @@ class SimplePromptBreeder:
         return new_prompt
 
 
-class SEWOptimizer(Optimizer):
+@register_optimizer("sew")
+class SEWOptimizer(BaseOptimizer, RegistryOptimizer):
 
     graph: Union[SequentialWorkFlowGraph, ActionGraph] = Field(description="The workflow to optimize.")
     repr_scheme: str = Field(default="python", description="The scheme to represent the workflow.")
