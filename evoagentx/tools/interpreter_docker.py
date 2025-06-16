@@ -2,12 +2,32 @@ import io
 import shlex
 import tarfile
 import uuid
+from dataclasses import dataclass
+from threading import Thread
 import docker
 from pathlib import Path
 from typing import ClassVar, Dict, Any, List
 from .interpreter_base import BaseInterpreter
 import os
 from pydantic import Field
+
+
+@dataclass
+class DockerLimits:
+    """Resource limits for Docker containers."""
+
+    memory: str = "512m"
+    cpus: str = "1.0"
+    pids: int = 64
+    timeout: int = 20
+
+
+ALLOWED_RUNTIMES = {
+    "python:3.11": "python:3.11-slim",
+    "node:20": "node:20-slim",
+    "python:3.11-gpu": "nvidia/cuda:12.4.0-runtime-ubuntu22.04",
+}
+
 class DockerInterpreter(BaseInterpreter):
     """
     A Docker-based interpreter for executing Python, Bash, and R scripts in an isolated environment.
@@ -15,6 +35,7 @@ class DockerInterpreter(BaseInterpreter):
     
     CODE_EXECUTE_CMD_MAPPING: ClassVar[Dict[str, str]] = {
         "python": "python {file_name}",
+        "node": "node {file_name}",
     }
 
     CODE_TYPE_MAPPING: ClassVar[Dict[str, str]] = {
@@ -22,42 +43,45 @@ class DockerInterpreter(BaseInterpreter):
         "py3": "python",
         "python3": "python",
         "py": "python",
+        "javascript": "node",
+        "js": "node",
+        "node": "node",
     }
 
-    require_confirm:bool = Field(default=False, description="Whether to require confirmation before executing code")
-    print_stdout:bool = Field(default=True, description="Whether to print stdout")
-    print_stderr:bool = Field(default=True, description="Whether to print stderr")
-    host_directory:str = Field(default="", description="The path to the host directory to use for the container")
-    container_directory:str = Field(default="/home/app/", description="The directory to use for the container")
-    container_command:str = Field(default="tail -f /dev/null", description="The command to use for the container")
-    tmp_directory:str = Field(default="/tmp", description="The directory to use for the container")
-    image_tag:str = Field(default=None, description="The Docker image tag to use")
-    dockerfile_path:str = Field(default=None, description="Path to the Dockerfile to build")
+    require_confirm: bool = Field(default=False, description="Whether to require confirmation before executing code")
+    print_stdout: bool = Field(default=True, description="Whether to print stdout")
+    print_stderr: bool = Field(default=True, description="Whether to print stderr")
+    host_directory: str = Field(default="", description="The path to the host directory to use for the container")
+    container_directory: str = Field(default="/home/app/", description="The directory to use for the container")
+    container_command: str = Field(default="tail -f /dev/null", description="The command to use for the container")
+    tmp_directory: str = Field(default="/tmp", description="The directory to use for the container")
+    runtime: str = Field(default="python:3.11", description="The runtime environment to use")
+    limits: DockerLimits = Field(default_factory=DockerLimits, description="Resource limits for the container")
     
     class Config:
         arbitrary_types_allowed = True  # Allow non-pydantic types like sets
 
     def __init__(
-        self, 
-        name:str = "DockerInterpreter",
-        image_tag:str = None,
-        dockerfile_path:str = None,
-        require_confirm:bool = False,
-        print_stdout:bool = True,
-        print_stderr:bool = True,
-        host_directory:str = "",
-        container_directory:str = "/home/app/",
-        container_command:str = "tail -f /dev/null",
-        tmp_directory:str = "/tmp",
-        **data
+        self,
+        name: str = "DockerInterpreter",
+        runtime: str = "python:3.11",
+        limits: DockerLimits | None = None,
+        require_confirm: bool = False,
+        print_stdout: bool = True,
+        print_stderr: bool = True,
+        host_directory: str = "",
+        container_directory: str = "/home/app/",
+        container_command: str = "tail -f /dev/null",
+        tmp_directory: str = "/tmp",
+        **data,
     ):
         """
         Initialize a Docker-based interpreter for executing code in an isolated environment.
         
         Args:
             name (str): The name of the interpreter
-            image_tag (str, optional): The Docker image tag to use. Must be provided if dockerfile_path is not.
-            dockerfile_path (str, optional): Path to the Dockerfile to build. Must be provided if image_tag is not.
+            runtime (str): The runtime to use. Must be one of ``ALLOWED_RUNTIMES``.
+            limits (DockerLimits): Resource limits for the container
             require_confirm (bool): Whether to require confirmation before executing code
             print_stdout (bool): Whether to print stdout from code execution
             print_stderr (bool): Whether to print stderr from code execution
@@ -88,12 +112,16 @@ class DockerInterpreter(BaseInterpreter):
         self.container_directory = container_directory
         self.container_command = container_command
         self.tmp_directory = tmp_directory
-        
+        self.runtime = runtime
+        self.limits = limits or DockerLimits()
+
+        if self.runtime not in ALLOWED_RUNTIMES:
+            raise ValueError(f"Unsupported runtime: {self.runtime}")
+
         # Initialize Docker client and container
         self.client = docker.from_env()
         self.container = None
-        self.image_tag = image_tag
-        self.dockerfile_path = dockerfile_path
+        self.image_tag = ALLOWED_RUNTIMES[self.runtime]
         self._initialize_if_needed()
         
         # Upload directory if specified
@@ -111,24 +139,13 @@ class DockerInterpreter(BaseInterpreter):
 
     def _initialize_if_needed(self):
         image_tag = self.image_tag
-        dockerfile_path = self.dockerfile_path
-        if image_tag:
-            try:
-                # Try to get the existing image first
-                self.client.images.get(image_tag)
-            except Exception as e:
-                raise ValueError(f"Image provided in image_tag but not found: {e}")
-        else:
-            # Image not found, need to build it - now we check for dockerfile_path
-            if not dockerfile_path:
-                raise ValueError("dockerfile_path or image_tag must be provided to build the image")
-                
-            dockerfile_path = Path(dockerfile_path)
-            if not dockerfile_path.exists():
-                raise FileNotFoundError(f"Dockerfile not found at provided path: {dockerfile_path}")
-            
-            dockerfile_dir = dockerfile_path.parent
-            self.client.images.build(path=str(dockerfile_dir), tag=image_tag, rm=True, buildargs={})
+        try:
+            self.client.images.get(image_tag)
+        except docker.errors.ImageNotFound:
+            # Pull image if not present locally
+            self.client.images.pull(image_tag)
+        except Exception as e:
+            raise ValueError(f"Failed to fetch image {image_tag}: {e}")
 
         # Check if Docker daemon is running
         try:
@@ -138,10 +155,13 @@ class DockerInterpreter(BaseInterpreter):
 
         # Run the container using the image with resource limits
         self.container = self.client.containers.run(
-            image_tag, 
-            detach=True, 
+            image_tag,
+            detach=True,
             command=self.container_command,
-            working_dir=self.container_directory
+            working_dir=self.container_directory,
+            mem_limit=self.limits.memory,
+            cpus=self.limits.cpus,
+            pids_limit=self.limits.pids,
         )
 
     def _upload_directory_to_container(self, host_directory: str):
@@ -212,13 +232,30 @@ class DockerInterpreter(BaseInterpreter):
         command = shlex.split(self.CODE_EXECUTE_CMD_MAPPING[language].format(file_name=file.as_posix()))
         if self.container is None:
             raise RuntimeError("Container is not initialized.")
-        result = self.container.exec_run(command, demux=True)
+
+        result_holder = {}
+
+        def target():
+            result_holder['res'] = self.container.exec_run(command, demux=True)
+
+        thread = Thread(target=target)
+        thread.start()
+        thread.join(self.limits.timeout)
+        if thread.is_alive():
+            self.container.kill()
+            thread.join()
+            raise RuntimeError("Execution timed out")
+
+        result = result_holder.get('res')
 
         stdout, stderr = result.output
         if self.print_stdout and stdout:
             print(stdout.decode())
         if self.print_stderr and stderr:
             print(stderr.decode())
+
+        if result.exit_code != 0:
+            raise RuntimeError(f"Execution failed with code {result.exit_code}")
 
         stdout_str = stdout.decode() if stdout else ""
         stderr_str = stderr.decode() if stderr else ""
