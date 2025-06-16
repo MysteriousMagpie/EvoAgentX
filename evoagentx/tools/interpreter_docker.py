@@ -4,6 +4,7 @@ import tarfile
 import uuid
 from dataclasses import dataclass
 from threading import Thread
+import time
 import docker
 from pathlib import Path
 from typing import ClassVar, Dict, Any, List
@@ -226,8 +227,11 @@ class DockerInterpreter(BaseInterpreter):
             
         return Path(f"{self.tmp_directory}/{filename}")
 
-    def _run_file_in_container(self, file: Path, language: str) -> str:
-        """Execute a file in the container with timeout and security checks."""
+    def _run_file_in_container(self, file: Path, language: str) -> dict:
+        """Execute a file in the container with timeout and security checks.
+
+        Returns a dict with execution details.
+        """
         if not self.container:
             raise RuntimeError("Container is not initialized")
             
@@ -242,6 +246,7 @@ class DockerInterpreter(BaseInterpreter):
             raise RuntimeError("Container is not initialized.")
 
         result_holder = {}
+        start = time.time()
 
         def target():
             result_holder['res'] = self.container.exec_run(command, demux=True)
@@ -254,6 +259,7 @@ class DockerInterpreter(BaseInterpreter):
             thread.join()
             raise RuntimeError("Execution timed out")
 
+        runtime = time.time() - start
         result = result_holder.get('res')
 
         stdout, stderr = result.output
@@ -269,7 +275,12 @@ class DockerInterpreter(BaseInterpreter):
 
         stdout_str = stdout.decode() if stdout else ""
         stderr_str = stderr.decode() if stderr else ""
-        return stdout_str + stderr_str
+        return {
+            "stdout": stdout_str,
+            "stderr": stderr_str,
+            "exit_code": result.exit_code,
+            "runtime_seconds": runtime,
+        }
 
     def execute(self, code: str, language: str) -> str:
         """
@@ -312,7 +323,8 @@ class DockerInterpreter(BaseInterpreter):
         
         try:
             file_path = self._create_file_in_container(code)
-            return self._run_file_in_container(file_path, language)
+            result = self._run_file_in_container(file_path, language)
+            return result["stdout"] + result["stderr"]
         except Exception as e:
             raise RuntimeError(f"Code execution failed: {e}")
         finally:
@@ -323,9 +335,29 @@ class DockerInterpreter(BaseInterpreter):
             except Exception:
                 pass  # Ignore cleanup errors
 
+    def execute_details(self, code: str, language: str) -> dict:
+        """Execute code and return detailed results."""
+        if not code or not code.strip():
+            raise ValueError("Code content cannot be empty")
+        if self.host_directory:
+            code = f"import sys; sys.path.insert(0, '{self.container_directory}');" + code
+        file_path = self._create_file_in_container(code)
+        try:
+            return self._run_file_in_container(file_path, language)
+        finally:
+            try:
+                if hasattr(self, 'container') and self.container:
+                    self.container.exec_run(f"rm -f {file_path}")
+            except Exception:
+                pass
+
     def run(self, code: str) -> str:
         """Convenience wrapper to execute Python code."""
         return self.execute(code, "python")
+
+    def run_details(self, code: str) -> dict:
+        """Convenience wrapper returning execution details for Python code."""
+        return self.execute_details(code, "python")
 
     def execute_script(self, file_path: str, language: str = None) -> str:
         """
