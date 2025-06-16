@@ -10,6 +10,7 @@
 </h2>
 
 <div align="center">
+![CI](https://github.com/EvoAgentX/EvoAgentX/actions/workflows/ci.yml/badge.svg)
 
 [![EvoAgentX Homepage](https://img.shields.io/badge/EvoAgentX-Homepage-blue?logo=homebridge)](https://evoagentx.org/)
 [![Docs](https://img.shields.io/badge/-Documentation-0A66C2?logo=readthedocs&logoColor=white&color=7289DA&labelColor=grey)](https://EvoAgentX.github.io/EvoAgentX/)
@@ -91,10 +92,24 @@ conda activate evoagentx
 
 # Install the package
 pip install -r requirements.txt
-# OR install in development mode
+# Or install in development mode
 pip install -e .
 ```
 </details>
+
+## Setup
+
+Before running any scripts or examples, install the project dependencies:
+
+```bash
+pip install -e .[dev]
+# or install from requirements
+pip install -r requirements.txt
+```
+
+This installs optional packages such as `python-dotenv`. The
+`run_evoagentx.py` script relies on `load_dotenv()` to read your `.env`
+file, so these dependencies must be installed first.
 
 ## LLM Configuration
 
@@ -336,6 +351,28 @@ Thanks go to these awesome contributors
 We appreciate your interest in contributing to our open-source initiative. We provide a document of [contributing guidelines](https://github.com/EvoAgentX/EvoAgentX/blob/main/CONTRIBUTING.md) which outlines the steps for contributing to EvoAgentX. Please refer to this guide to ensure smooth collaboration and successful contributions. 🤝🚀
 
 [![Star History Chart](https://api.star-history.com/svg?repos=EvoAgentX/EvoAgentX&type=Date)](https://www.star-history.com/#EvoAgentX/EvoAgentX&Date)
+
+
+## Quick Start (Full Stack)
+
+1. Copy `.env.example` to `.env` and add your `OPENAI_API_KEY`.
+2. Create a virtual environment and install backend dependencies:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+pip install -r server/requirements.txt
+uvicorn server.main:app --reload
+```
+
+3. For the React frontend:
+
+```bash
+cd client
+pnpm install
+pnpm dev
+```
+The `client/` directory contains a full Vite + React + TypeScript project with its own `package.json`.
 
 
 ## 📚 Acknowledgements 
