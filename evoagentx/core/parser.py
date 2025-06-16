@@ -19,7 +19,7 @@ class Parser(BaseModule):
         """
         Save the Parser object to a file.
         """
-        super().save_module(path, **kwargs)
+        return super().save_module(path, **kwargs)
 
 
 
