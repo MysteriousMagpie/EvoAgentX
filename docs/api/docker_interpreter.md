@@ -30,3 +30,25 @@ When running on cgroup-v2 systems (e.g. GitHub Actions), Docker only enforces
 `--memory` if `--memory-swap` is also set. The interpreter sets this value equal
 to the memory limit to ensure an OOM kill when the cap is exceeded.
 
+### CLI Example
+
+Run a Node snippet with custom limits:
+
+```bash
+python -m evoagentx.cli run --runtime node:20 --memory 512m --cpus 1 --timeout 15 -c "console.log(42)"
+```
+
+### REST API
+
+POST `/execute` accepts:
+
+```json
+{
+  "code": "print('hi')",
+  "runtime": "python:3.11",
+  "limits": {"memory": "512m", "cpus": "1.0", "timeout": 20}
+}
+```
+
+It returns `stdout`, `stderr`, `exit_code` and `runtime_seconds`.
+

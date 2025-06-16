@@ -4,6 +4,7 @@ import tarfile
 import uuid
 from dataclasses import dataclass
 from threading import Thread
+import time
 import docker
 from pathlib import Path
 from typing import ClassVar, Dict, Any, List
@@ -322,6 +323,49 @@ class DockerInterpreter(BaseInterpreter):
                     self.container.exec_run(f"rm -f {file_path}")
             except Exception:
                 pass  # Ignore cleanup errors
+
+    def execute_with_result(self, code: str, language: str) -> dict:
+        """Execute code and return detailed results."""
+        start = time.time()
+        file_path = self._create_file_in_container(code)
+        try:
+            language = self._check_language(language)
+            command = shlex.split(self.CODE_EXECUTE_CMD_MAPPING[language].format(file_name=file_path.as_posix()))
+            result_holder: dict[str, Any] = {}
+
+            def target() -> None:
+                result_holder['res'] = self.container.exec_run(command, demux=True)
+
+            thread = Thread(target=target)
+            thread.start()
+            thread.join(self.limits.timeout)
+            if thread.is_alive():
+                self.container.kill()
+                thread.join()
+                raise RuntimeError("Execution timed out")
+
+            res = result_holder.get('res')
+            stdout, stderr = res.output
+            runtime_seconds = time.time() - start
+            if res.exit_code != 0:
+                if res.exit_code == 137:
+                    raise RuntimeError("Execution failed: OOM (memory limit exceeded)")
+            if self.print_stdout and stdout:
+                print(stdout.decode())
+            if self.print_stderr and stderr:
+                print(stderr.decode())
+            return {
+                "stdout": stdout.decode() if stdout else "",
+                "stderr": stderr.decode() if stderr else "",
+                "exit_code": res.exit_code,
+                "runtime_seconds": runtime_seconds,
+            }
+        finally:
+            try:
+                if hasattr(self, 'container') and self.container:
+                    self.container.exec_run(f"rm -f {file_path}")
+            except Exception:
+                pass
 
     def run(self, code: str) -> str:
         """Convenience wrapper to execute Python code."""
