@@ -1,6 +1,6 @@
 # tests/test_utils_extra.py
 import sys, types, datetime, pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from typing import cast
 
@@ -29,13 +29,26 @@ app = FastAPI()
 EVENTS = {}
 @app.get("/events")           # happy-path
 def list_events(): return list(EVENTS.values())
+@app.post("/events")
+def create_event(payload: dict):
+    _id = str(len(EVENTS) + 1)
+    EVENTS[_id] = {"id": _id, **payload}
+    return EVENTS[_id]
+@app.delete("/events/{event_id}")
+def delete_event(event_id: str):
+    if event_id not in EVENTS:
+        raise HTTPException(404)
+    EVENTS.pop(event_id)
+    return {}
 client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def _wire(monkeypatch):
     for verb in ("get", "post", "delete", "put"):
         monkeypatch.setattr(cal.requests, verb, getattr(client, verb))
+    original_base_url = cal._base_url
     monkeypatch.setattr(cal, "_base_url", lambda: "http://testserver")
+    original_base_url()
     yield
     EVENTS.clear()
 
@@ -53,6 +66,19 @@ def test_factory_load_success():
 def test_factory_load_failure():
     with pytest.raises((ImportError, AttributeError)):
         factory.load_class("nope.Nope")
+
+def test_calendar_error_handling(monkeypatch):
+    monkeypatch.setattr(cal.requests, "get", lambda *_, **__: (_ for _ in ()).throw(Exception("boom")))
+    assert cal.get_today_events() == []
+
+def test_factory_db_supported(monkeypatch):
+    monkeypatch.setattr(factory, "load_class", lambda path: lambda **_: "db")
+    got = factory.DBStoreFactory.create("sqlite", cast(factory.DBConfig, _DummyCfg()))
+    assert got == "db"
+
+def test_factory_vector_and_graph():
+    assert factory.VectorStoreFactory().create(cast(factory.VectorStoreConfig, _DummyCfg())) is None
+    assert factory.GraphStoreFactory.create(cast(factory.VectorStoreConfig, _DummyCfg())) is None
 def test_factory_db_unsupported():
     with pytest.raises(ValueError):
         factory.DBStoreFactory.create("unknown", cast(factory.DBConfig, _DummyCfg()))
