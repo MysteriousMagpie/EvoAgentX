@@ -114,6 +114,22 @@ This installs optional packages such as `python-dotenv`. The
 `run_evoagentx.py` script relies on `load_dotenv()` to read your `.env`
 file, so these dependencies must be installed first.
 
+### CLI Quick Example
+
+You can run small snippets directly in a Docker container using the
+command line interface:
+
+```bash
+python -m evoagentx.cli run -c "print('hi')"
+python -m evoagentx.cli run --runtime node:20 -c "console.log(42)"
+```
+
+Resource limits are configurable:
+
+```bash
+python -m evoagentx.cli run --memory 512m --cpus 1 --timeout 15 -c "print('hi')"
+```
+
 ## LLM Configuration
 
 ### API Key Configuration 
