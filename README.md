@@ -377,6 +377,17 @@ pnpm dev
 ```
 The `client/` directory contains a full Vite + React + TypeScript project with its own `package.json`.
 
+### DockerInterpreter CLI
+
+Run a snippet in an isolated container:
+
+```bash
+python -m evoagentx.cli run -c "print('hi')"
+python -m evoagentx.cli run --runtime node:20 --memory 512m --cpus 1 --timeout 15 -c "console.log(42)"
+```
+
+The same functionality is exposed via the `/execute` REST endpoint.
+
 
 ## 📚 Acknowledgements 
 This project builds upon several outstanding open-source projects: [AFlow](https://github.com/FoundationAgents/MetaGPT/tree/main/metagpt/ext/aflow), [TextGrad](https://github.com/zou-group/textgrad), [DSPy](https://github.com/stanfordnlp/dspy), [LiveCodeBench](https://github.com/LiveCodeBench/LiveCodeBench), and more. We would like to thank the developers and maintainers of these frameworks for their valuable contributions to the open-source community.

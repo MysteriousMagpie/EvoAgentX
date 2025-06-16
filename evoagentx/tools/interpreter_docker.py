@@ -22,6 +22,16 @@ class DockerLimits:
     timeout: int = 20
 
 
+@dataclass
+class ExecutionResult:
+    """Detailed result from code execution."""
+
+    stdout: str
+    stderr: str
+    exit_code: int
+    runtime_seconds: float
+
+
 ALLOWED_RUNTIMES = {
     "python:3.11": "python:3.11-slim",
     "node:20": "node:20-slim",
@@ -226,8 +236,8 @@ class DockerInterpreter(BaseInterpreter):
             
         return Path(f"{self.tmp_directory}/{filename}")
 
-    def _run_file_in_container(self, file: Path, language: str) -> str:
-        """Execute a file in the container with timeout and security checks."""
+    def _run_file_in_container_verbose(self, file: Path, language: str) -> ExecutionResult:
+        """Execute a file in the container and return detailed results."""
         if not self.container:
             raise RuntimeError("Container is not initialized")
             
@@ -247,6 +257,7 @@ class DockerInterpreter(BaseInterpreter):
             result_holder['res'] = self.container.exec_run(command, demux=True)
 
         thread = Thread(target=target)
+        start = time.perf_counter()
         thread.start()
         thread.join(self.limits.timeout)
         if thread.is_alive():
@@ -256,20 +267,24 @@ class DockerInterpreter(BaseInterpreter):
 
         result = result_holder.get('res')
 
+        runtime_seconds = time.perf_counter() - start
         stdout, stderr = result.output
-        if self.print_stdout and stdout:
-            print(stdout.decode())
-        if self.print_stderr and stderr:
-            print(stderr.decode())
-
+        stdout_str = stdout.decode() if stdout else ""
+        stderr_str = stderr.decode() if stderr else ""
+        if self.print_stdout and stdout_str:
+            print(stdout_str)
+        if self.print_stderr and stderr_str:
+            print(stderr_str)
         if result.exit_code != 0:
             if result.exit_code == 137:
                 raise RuntimeError("Execution failed: OOM (memory limit exceeded)")
             raise RuntimeError(f"Execution failed with code {result.exit_code}")
 
-        stdout_str = stdout.decode() if stdout else ""
-        stderr_str = stderr.decode() if stderr else ""
-        return stdout_str + stderr_str
+        return ExecutionResult(stdout=stdout_str, stderr=stderr_str, exit_code=result.exit_code, runtime_seconds=runtime_seconds)
+
+    def _run_file_in_container(self, file: Path, language: str) -> str:
+        res = self._run_file_in_container_verbose(file, language)
+        return res.stdout + res.stderr
 
     def execute(self, code: str, language: str) -> str:
         """
@@ -312,7 +327,8 @@ class DockerInterpreter(BaseInterpreter):
         
         try:
             file_path = self._create_file_in_container(code)
-            return self._run_file_in_container(file_path, language)
+            res = self._run_file_in_container_verbose(file_path, language)
+            return res.stdout + res.stderr
         except Exception as e:
             raise RuntimeError(f"Code execution failed: {e}")
         finally:
@@ -322,6 +338,34 @@ class DockerInterpreter(BaseInterpreter):
                     self.container.exec_run(f"rm -f {file_path}")
             except Exception:
                 pass  # Ignore cleanup errors
+
+    def execute_verbose(self, code: str, language: str) -> ExecutionResult:
+        """Execute code and return detailed execution metrics."""
+        if not code or not code.strip():
+            raise ValueError("Code content cannot be empty")
+
+        if not self.container:
+            raise RuntimeError("Container is not initialized")
+
+        if self.host_directory:
+            code = f"import sys; sys.path.insert(0, '{self.container_directory}');" + code
+
+        language = self._check_language(language)
+
+        if self.require_confirm:
+            confirmation = input(f"Confirm execution of {language} code? [Y/n]:")
+            if confirmation.lower() not in ["y", "yes", ""]:
+                raise RuntimeError("Execution aborted by user.")
+
+        file_path = self._create_file_in_container(code)
+        try:
+            return self._run_file_in_container_verbose(file_path, language)
+        finally:
+            try:
+                if hasattr(self, 'container') and self.container:
+                    self.container.exec_run(f"rm -f {file_path}")
+            except Exception:
+                pass
 
     def run(self, code: str) -> str:
         """Convenience wrapper to execute Python code."""
