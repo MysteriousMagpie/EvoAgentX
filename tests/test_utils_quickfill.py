@@ -79,9 +79,10 @@ def test_db_factory_unsupported():
 
 
 # Add this class definition above the test
-class _DummyCfg:
+class _DummyCfg(VectorStoreConfig):
     # Define the necessary attributes and methods expected by the factory
     def __init__(self):
+        super().__init__()
         self.provider = "qdrant"
         self.some_attribute = "some_value"
 

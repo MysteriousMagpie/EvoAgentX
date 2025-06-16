@@ -52,12 +52,14 @@ class DBStoreFactory:
         from ..storages import storages_config  # local import to avoid cycle
 
         if isinstance(config, storages_config.DBConfig):
-            config = config.model_dump()
-
+            config_dict = config.model_dump()
+        else:
+            config_dict = config
+        
         class_type = cls.provider_to_class.get(provider_name)
         if class_type:
             db_store_class = load_class(class_type)
-            return db_store_class(**config)
+            return db_store_class(**config_dict)
         else:
             raise ValueError(f"Unsupported Database provider: {provider_name}")
 
@@ -100,7 +102,7 @@ class GraphStoreFactory:
     }
 
     @classmethod
-    def create(cls, config: 'VectorStoreConfig'):
+    def create(cls, config: "VectorStoreConfig | dict"):
         """
         Create a graph store instance based on the provided configuration.
 
