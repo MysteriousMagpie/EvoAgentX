@@ -64,7 +64,8 @@ dev = [
     "pytest-asyncio",
     "pytest-subtests",
     "pytest-json-report",
-    "ruff"
+    "ruff",
+    "fakeredis"
 ]
 
 [project.urls]
