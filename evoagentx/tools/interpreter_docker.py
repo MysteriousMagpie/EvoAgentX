@@ -167,6 +167,7 @@ class DockerInterpreter(BaseInterpreter):
             command=self.container_command,
             working_dir=self.container_directory,
             mem_limit=self.limits.memory,
+            memswap_limit=self.limits.memory,
             nano_cpus=int(cpus * 1_000_000_000),
             pids_limit=self.limits.pids,
         )
@@ -262,6 +263,8 @@ class DockerInterpreter(BaseInterpreter):
             print(stderr.decode())
 
         if result.exit_code != 0:
+            if result.exit_code == 137:
+                raise RuntimeError("Execution failed: OOM (memory limit exceeded)")
             raise RuntimeError(f"Execution failed with code {result.exit_code}")
 
         stdout_str = stdout.decode() if stdout else ""
@@ -319,6 +322,10 @@ class DockerInterpreter(BaseInterpreter):
                     self.container.exec_run(f"rm -f {file_path}")
             except Exception:
                 pass  # Ignore cleanup errors
+
+    def run(self, code: str) -> str:
+        """Convenience wrapper to execute Python code."""
+        return self.execute(code, "python")
 
     def execute_script(self, file_path: str, language: str = None) -> str:
         """
@@ -422,7 +429,8 @@ class DockerInterpreter(BaseInterpreter):
         """
         return [
             "Execute code in a secure Docker container environment.",
-            "Execute code from script files in a secure Docker container environment."
+            "Execute code from script files in a secure Docker container environment.",
+            "Run Python code directly in the container."
         ]
         
     def get_tools(self) -> List[callable]:
@@ -432,4 +440,4 @@ class DockerInterpreter(BaseInterpreter):
         Returns:
             List[callable]: List of callable methods
         """
-        return [self.execute, self.execute_script]
+        return [self.execute, self.execute_script, self.run]
