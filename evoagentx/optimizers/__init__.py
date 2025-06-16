@@ -1,6 +1,5 @@
 from abc import ABC
 from typing import Callable, Any, Dict, Type
-from .random_search_optimizer import RandomSearchOptimizer
 
 _optimizers: Dict[str, Type["Optimizer"]] = {}
 
@@ -50,6 +49,8 @@ except Exception:  # pragma: no cover - optional dependency
     class SEWOptimizer(Optimizer):
         def optimize(self, *args, **kwargs):  # pragma: no cover - stub
             raise ImportError("SEWOptimizer dependencies are missing")
+
+from .random_search import RandomSearchOptimizer  # noqa: E402
 
 
 __all__ = [

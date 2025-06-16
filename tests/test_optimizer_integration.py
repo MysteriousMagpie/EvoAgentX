@@ -27,7 +27,11 @@ def patch_registry(monkeypatch):
 ])
 def test_optimizer_integration(name, expected):
     if name == "random_search":
-        result = run(lambda x: x**2, optimizer=name, iterations=1, sampler=lambda: 0.5)
+        class ConstantRandom:
+            def uniform(self, _a: float, _b: float) -> float:  # pragma: no cover - simple stub
+                return 0.5
+
+        result = run(lambda x: x**2, optimizer=name, bounds=(0, 1), iterations=1, rng=ConstantRandom())
     else:
         result = run(lambda x: x**2, optimizer=name, value=42)
     assert result == expected
