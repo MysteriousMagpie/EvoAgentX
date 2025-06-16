@@ -5,14 +5,14 @@ import sys
 from evoagentx.utils.utils import safe_remove, generate_dynamic_class_name, normalize_text
 from evoagentx.utils.sanitize import syntax_check
 import evoagentx.utils.aflow_utils.data_utils as du
-du.test_case_2_test_function.__test__ = False
+setattr(du.test_case_2_test_function, "__test__", False)
 
 # import factory with minimal storages stubs to avoid circular imports
 cfg_mod = types.ModuleType("evoagentx.storages.storages_config")
 class DBConfig: ...
 class VectorStoreConfig: ...
-cfg_mod.DBConfig = DBConfig
-cfg_mod.VectorStoreConfig = VectorStoreConfig
+setattr(cfg_mod, "DBConfig", DBConfig)
+setattr(cfg_mod, "VectorStoreConfig", VectorStoreConfig)
 sys.modules.setdefault("evoagentx.storages", types.ModuleType("evoagentx.storages"))
 sys.modules["evoagentx.storages.storages_config"] = cfg_mod
 from evoagentx.utils.factory import load_class

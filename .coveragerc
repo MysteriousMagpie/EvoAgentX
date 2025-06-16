@@ -17,6 +17,7 @@ omit =
     evoagentx/workflow/*
     evoagentx/config.py
 
+
 [report]
 omit =
     evoagentx/optimizers/aflow_optimizer.py
