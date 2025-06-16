@@ -210,6 +210,7 @@ plugins:
               - Benchmark: api/benchmark.md
               - Evaluators: api/evaluators.md
               - Optimizers: api/optimizers.md
+              - Development Guide: development.md
 
         - locale: zh
           name: 中文
@@ -248,3 +249,4 @@ plugins:
               - 基准测试接口: api/benchmark.md
               - 评估器接口: api/evaluators.md
               - 优化器接口: api/optimizers.md
+              - 开发指南: development.md
