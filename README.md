@@ -388,6 +388,9 @@ pip install -r server/requirements.txt
 uvicorn server.main:app --reload
 ```
 
+The optional calendar API integrates with macOS Calendar via `osascript`. These
+endpoints only work when run on macOS with AppleScript available.
+
 3. For the React frontend:
 
 ```bash

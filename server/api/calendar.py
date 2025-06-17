@@ -1,13 +1,18 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
-from server.core.macos_calendar import create_calendar_event, CalendarEvent
+from server.core.macos_calendar import (
+    create_calendar_event,
+    update_calendar_event,
+    delete_calendar_event,
+)
 import datetime as dt
 import uuid
 
 calendar_router = APIRouter(prefix="/events", tags=["calendar"])
 
-# in-memory store for now
-_EVENT_DB: dict[str, CalendarEvent] = {}
+# Requires macOS + `osascript` for full functionality.
+# In-memory store for now
+_EVENT_DB: dict[str, dict] = {}
 
 
 class EventIn(BaseModel):
@@ -20,20 +25,23 @@ class EventIn(BaseModel):
 
 class EventOut(EventIn):
     id: str
+    uid: str | None = None
 
 
 @calendar_router.post("/", response_model=EventOut, status_code=201)
 def add_event(evt: EventIn):
     try:
-        create_calendar_event(evt.model_dump())   # push to macOS
+        uid = create_calendar_event(evt.model_dump())   # push to macOS
     except NotImplementedError:
-        pass  # running on non-mac dev box → just store
+        uid = None  # running on non-mac dev box → just store
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"Calendar error: {exc}") from exc
 
     evt_id = str(uuid.uuid4())
-    _EVENT_DB[evt_id] = evt.model_dump()
-    return EventOut(id=evt_id, **evt.model_dump())
+    data = evt.model_dump()
+    data["uid"] = uid
+    _EVENT_DB[evt_id] = data
+    return EventOut(id=evt_id, **data)
 
 
 @calendar_router.get("/", response_model=list[EventOut])
@@ -45,14 +53,33 @@ def list_events():
 def update_event(evt_id: str, evt: EventIn):
     if evt_id not in _EVENT_DB:
         raise HTTPException(404, "Not found")
-    _EVENT_DB[evt_id] = evt.model_dump()
-    # TODO: update macOS event when helper ready
-    return EventOut(id=evt_id, **evt.model_dump())
+    stored = _EVENT_DB[evt_id]
+    data = evt.model_dump()
+    data["uid"] = stored.get("uid")
+
+    try:
+        if data["uid"]:
+            update_calendar_event(data["uid"], data)
+    except NotImplementedError:
+        pass
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Calendar error: {exc}") from exc
+
+    _EVENT_DB[evt_id] = data
+    return EventOut(id=evt_id, **data)
 
 
 @calendar_router.delete("/{evt_id}", status_code=204)
 def delete_event(evt_id: str):
     if evt_id not in _EVENT_DB:
         raise HTTPException(404, "Not found")
-    # TODO: also remove from macOS by UID when helper ready
-    _EVENT_DB.pop(evt_id)
+    stored = _EVENT_DB.pop(evt_id)
+
+    try:
+        uid = stored.get("uid")
+        if uid:
+            delete_calendar_event(uid)
+    except NotImplementedError:
+        pass
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(500, f"Calendar error: {exc}") from exc
