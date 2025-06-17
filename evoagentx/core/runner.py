@@ -6,11 +6,11 @@ from evoagentx.utils.calendar import get_today_events
 import os
 import asyncio
 from dotenv import load_dotenv
+from typing import Tuple, Union
 
 load_dotenv()
 
 
-from typing import Tuple, Union
 
 
 async def run_workflow_async(goal: str, progress_cb=None, return_graph: bool = False) -> Union[str, Tuple[str, dict]]:
