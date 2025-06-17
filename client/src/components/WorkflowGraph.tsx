@@ -1,5 +1,6 @@
 import React from 'react';
-import ReactFlow, { Background, Controls, Edge, Node } from 'reactflow';
+import ReactFlow, { Background, Controls } from 'reactflow';
+import type { Node, Edge } from 'reactflow';
 import { useRunStore } from '../store/useRunStore';
 import 'reactflow/dist/style.css';
 
