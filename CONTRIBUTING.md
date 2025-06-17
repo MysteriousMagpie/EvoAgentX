@@ -7,9 +7,10 @@ Thank you for considering contributing to **EvoAgentX** – an automatic agentic
 If you're interested in contributing code:
 
 1. Clone the repo and set up your Python environment
-2. Install dependencies in development mode via `pip install -e .`
-3. Make changes in a new branch
-4. Submit a Pull Request
+2. Install dependencies in development mode via `pip install -e .[dev]` or `pip install -r requirements.txt`
+3. Tests rely on packages like `requests`, `httpx`, `pyyaml`, and `numpy`.
+4. Make changes in a new branch
+5. Submit a Pull Request
 
 📌 New to EvoAgentX? Try the [Quickstart Guide](./docs/quickstart.md)
 

@@ -7,6 +7,8 @@ pytest-json-report
 ruff
 
 fakeredis
+requests
+pyyaml
 sympy
 stopit
 scipy
