@@ -1,5 +1,6 @@
 import React from 'react';
 import ReactFlow, { Background, Controls, Edge, Node } from 'reactflow';
+import { useRunStore } from '../store/useRunStore';
 import 'reactflow/dist/style.css';
 
 interface GraphData {
@@ -7,12 +8,8 @@ interface GraphData {
   edges?: { source: string; target: string }[];
 }
 
-interface Props {
-  data?: GraphData;
-  active?: string | null;
-}
-
-export default function WorkflowGraph({ data, active }: Props) {
+export default function WorkflowGraph() {
+  const { graph: data, activeTask: active } = useRunStore();
   const nodes: Node[] = (data?.nodes || []).map((n, idx) => ({
     id: n.name,
     data: { label: n.name },
