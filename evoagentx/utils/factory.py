@@ -92,29 +92,27 @@ class VectorStoreFactory:
 
 # Factory for creating graph store instances
 class GraphStoreFactory:
-    """
-    Factory class for creating graph store instances based on configuration.
-    Maps provider names to specific graph store classes.
-    """
+    """Factory for creating graph store instances."""
+
     provider_to_class = {
-        "neo4j": "mem0.graph_stores",  # Note: Incomplete mapping, likely a placeholder
-        "": "mem0.graph_stores",  # Note: Incomplete mapping, likely a placeholder
+        "neo4j": "evoagentx.storages.graph_stores.neo4j.Neo4jGraphStore",
     }
 
     @classmethod
-    def create(cls, config: "VectorStoreConfig | dict"):
-        """
-        Create a graph store instance based on the provided configuration.
+    def create(cls, config: "storages_config.GraphStoreConfig | dict"):
+        """Create a graph store instance from configuration."""
+        from ..storages import storages_config  # avoid circular import
 
-        Attributes:
-            config (VectorStoreConfig): Configuration for the graph store.
+        if isinstance(config, storages_config.GraphStoreConfig):
+            cfg_dict = config.model_dump()
+            provider = config.provider
+        else:
+            cfg_dict = dict(config)
+            provider = cfg_dict.get("provider", "")
 
-        Returns:
-            GraphStoreBase: An instance of the graph store.
-        """
-        from ..storages import storages_config  # local import to avoid cycle
-        if isinstance(config, storages_config.VectorStoreConfig):
-            config = config.model_dump()
+        class_path = cls.provider_to_class.get(provider)
+        if not class_path:
+            raise ValueError(f"Unsupported Graph-store provider: {provider}")
 
-        # TODO: Implement graph store creation logic
-        return None
+        graph_cls = load_class(class_path)
+        return graph_cls(**cfg_dict)

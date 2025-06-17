@@ -2,7 +2,11 @@
 import datetime
 import warnings
 import pytest
-from evoagentx.storages.storages_config import DBConfig, VectorStoreConfig
+from evoagentx.storages.storages_config import (
+    DBConfig,
+    VectorStoreConfig,
+    GraphStoreConfig,
+)
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from typing import cast
@@ -69,7 +73,15 @@ def test_factory_vector_and_graph():
     cfg = VectorStoreConfig()
     with pytest.raises(ValueError):
         factory.VectorStoreFactory.create(cfg)
-    assert factory.GraphStoreFactory.create(config=cfg) is None
+    with pytest.raises(ValueError):
+        factory.GraphStoreFactory.create(GraphStoreConfig())
+
+def test_factory_graph_supported(monkeypatch):
+    monkeypatch.setattr(factory, "load_class", lambda path: lambda **_: "graph")
+    cfg = GraphStoreConfig(provider="neo4j")
+    got = factory.GraphStoreFactory.create(cfg)
+    assert got == "graph"
+
 def test_factory_db_unsupported():
     with pytest.raises(ValueError):
         cfg = DBConfig(db_name="unknown")
