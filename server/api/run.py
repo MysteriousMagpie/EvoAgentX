@@ -8,7 +8,9 @@ router = APIRouter()
 @router.post("/run", response_model=RunResponse)
 async def run(request: RunRequest):
     try:
-        output = await run_workflow_async(request.goal, progress_cb=manager.broadcast)
+        output, graph = await run_workflow_async(
+            request.goal, progress_cb=manager.broadcast, return_graph=True
+        )
     except ValueError as e:
         # < 10 characters or other validation errors
         raise HTTPException(status_code=400, detail=str(e))
@@ -16,4 +18,4 @@ async def run(request: RunRequest):
         # unexpected agent errors
         raise HTTPException(status_code=500, detail="EvoAgent failed") from e
 
-    return RunResponse(goal=request.goal, output=output)
+    return RunResponse(goal=request.goal, output=output, graph=graph)

@@ -9,6 +9,7 @@ class RunRequest(BaseModel):
 class RunResponse(BaseModel):
     goal: str
     output: str
+    graph: dict | None = None
 
 
 class EventBase(BaseModel):

@@ -10,7 +10,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-async def run_workflow_async(goal: str, progress_cb=None) -> str:
+from typing import Tuple, Union
+
+
+async def run_workflow_async(goal: str, progress_cb=None, return_graph: bool = False) -> Union[str, Tuple[str, dict]]:
     """
     Run EvoAgentX workflow asynchronously.
     Raises ValueError if goal too short (handled by caller).
@@ -56,5 +59,7 @@ async def run_workflow_async(goal: str, progress_cb=None) -> str:
     result = await workflow.async_execute(context)
     if progress_cb:
         await progress_cb("Workflow completed")
+    if return_graph:
+        return result, workflow_graph.get_config()
     return result
 
