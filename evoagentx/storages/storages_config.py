@@ -25,10 +25,12 @@ class VectorStoreConfig(BaseConfig):
 
 
 class GraphStoreConfig(BaseConfig):
-    """
-    Placeholder for settings related to graph databases.
-    """
-    pass
+    """Configuration for graph database backends."""
+
+    provider: str = Field(
+        default="",
+        description="Name of the graph store provider (e.g., 'neo4j')",
+    )
 
 
 class FileStoreConfig(BaseConfig):
