@@ -1,9 +1,6 @@
 import unittest
 from unittest.mock import patch
-import os
-import shutil
-import tempfile
-from datasets import load_from_disk 
+from datasets import load_from_disk
 from evoagentx.benchmark.livecodebench import LiveCodeBench
 from evoagentx.benchmark.lcb_utils.code_generation import CodeGenerationProblem
 from evoagentx.benchmark.lcb_utils.test_output_prediction import TestOutputPredictionProblem
