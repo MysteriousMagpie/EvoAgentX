@@ -40,7 +40,7 @@ class ToyModule2(BaseModule):
             if self.k4 is not None and self.k5 is not None:
                 self.k6 = ToyTool(self.k4, self.k5)
             else:
-                raise ValueError(f"either k4 and k5 is None!")
+                raise ValueError("either k4 and k5 is None!")
 
 class ToyModule2SubClass(ToyModule2):
 
