@@ -1,8 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 
 from .api.run import router as run_router
 from .api.calendar import calendar_router
+from .core.websocket_manager import manager
 
 app = FastAPI()
 
@@ -16,6 +17,16 @@ app.add_middleware(
 
 app.include_router(run_router)
 app.include_router(calendar_router)
+
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
 
 if __name__ == "__main__":
     import uvicorn

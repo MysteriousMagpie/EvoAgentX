@@ -1,14 +1,16 @@
 from evoagentx.models import OpenAILLMConfig, OpenAILLM
 from evoagentx.workflow import WorkFlowGenerator, WorkFlowGraph, WorkFlow
+from evoagentx.workflow.environment import Environment
 from evoagentx.agents import AgentManager
 from evoagentx.utils.calendar import get_today_events
 import os
+import asyncio
 from dotenv import load_dotenv
 
 load_dotenv()
 
 
-async def run_workflow_async(goal: str) -> str:
+async def run_workflow_async(goal: str, progress_cb=None) -> str:
     """
     Run EvoAgentX workflow asynchronously.
     Raises ValueError if goal too short (handled by caller).
@@ -37,7 +39,22 @@ async def run_workflow_async(goal: str) -> str:
 
     agent_manager = AgentManager()
     agent_manager.add_agents_from_workflow(workflow_graph, llm_config=llm_config)
-    workflow = WorkFlow(graph=workflow_graph, agent_manager=agent_manager, llm=llm)
+    env = Environment()
+    if progress_cb:
+        orig_update = env.update
+
+        def patched_update(message, state=None, error=None, **kwargs):
+            asyncio.create_task(progress_cb(str(message)))
+            return orig_update(message, state=state, error=error, **kwargs)
+
+        env.update = patched_update  # type: ignore
+
+    workflow = WorkFlow(graph=workflow_graph, agent_manager=agent_manager, llm=llm, environment=env)
     context = {"today_events": get_today_events(), "goal": goal}
-    return await workflow.async_execute(context)
+    if progress_cb:
+        await progress_cb("Workflow started")
+    result = await workflow.async_execute(context)
+    if progress_cb:
+        await progress_cb("Workflow completed")
+    return result
 
