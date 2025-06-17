@@ -144,8 +144,8 @@ class TestAFlowHotPotQA(unittest.TestCase):
             for item in self.sample_data:
                 f.write(json.dumps(item) + '\n')
 
-        benchmark = AFlowHotPotQA(path=self.temp_dir, mode="test")
-        
+        AFlowHotPotQA(path=self.temp_dir, mode="test")
+
         # Test data loading
         self.assertEqual(mock_download.call_count, 0)
 
