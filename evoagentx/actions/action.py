@@ -1,5 +1,6 @@
 import json
-from pydantic import model_validator 
+import importlib
+from pydantic import model_validator
 from pydantic_core import PydanticUndefined
 from typing import Optional, Type, Tuple, Union, List, Any
 
@@ -143,11 +144,23 @@ class Action(BaseModule):
         """
         data = super().to_dict(exclude_none=exclude_none, ignore=ignore, **kwargs)
         if self.inputs_format:
-            data["inputs_format"] = self.inputs_format.__name__ 
+            data["inputs_format"] = self.inputs_format.__name__
         if self.outputs_format:
-            data["outputs_format"] = self.outputs_format.__name__ 
-        # TODO: customize serialization for the tools 
-        return data 
+            data["outputs_format"] = self.outputs_format.__name__
+
+        if self.tools is not None:
+            serialized_tools = []
+            for tool in self.tools:
+                if isinstance(tool, Tool):
+                    serialized_tools.append({
+                        "tool_path": f"{tool.__module__}.{tool.__class__.__name__}",
+                        "config": tool.to_dict(exclude_none=exclude_none)
+                    })
+                else:
+                    serialized_tools.append(tool)
+            data["tools"] = serialized_tools
+
+        return data
     
     @model_validator(mode="before")
     @classmethod
@@ -158,8 +171,27 @@ class Action(BaseModule):
         if "outputs_format" in data and data["outputs_format"] and isinstance(data["outputs_format"], str):
             # only used when loading from a file
             data["outputs_format"] = MODULE_REGISTRY.get_module(data["outputs_format"])
-        # TODO: customize loading for the tools
-        return data 
+
+        if "tools" in data and isinstance(data["tools"], list):
+            loaded_tools = []
+            for t in data["tools"]:
+                if isinstance(t, dict) and "tool_path" in t:
+                    module_path, class_name = t["tool_path"].rsplit(".", 1)
+                    try:
+                        importlib.import_module(module_path)
+                    except Exception:
+                        pass
+                    tool_cls = MODULE_REGISTRY.get_module(class_name)
+                    config = t.get("config", {})
+                    loaded_tools.append(tool_cls._create_instance(config))
+                elif isinstance(t, dict) and "class_name" in t:
+                    tool_cls = MODULE_REGISTRY.get_module(t["class_name"])
+                    loaded_tools.append(tool_cls._create_instance(t))
+                else:
+                    loaded_tools.append(t)
+            data["tools"] = loaded_tools
+
+        return data
     
     def execute(self, llm: Optional[BaseLLM] = None, inputs: Optional[dict] = None, sys_msg: Optional[str]=None, return_prompt: bool = False, **kwargs) -> Optional[Union[Parser, Tuple[Parser, str]]]:
         """Execute the action to produce a result.
