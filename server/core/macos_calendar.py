@@ -6,7 +6,6 @@ If the host isn’t macOS, calls just raise NotImplementedError for now.
 from __future__ import annotations
 
 import datetime as _dt
-import json
 import platform
 import subprocess
 from typing import TypedDict
