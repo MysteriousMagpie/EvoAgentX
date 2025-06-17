@@ -8,7 +8,7 @@ from ..utils.factory import DBStoreFactory, VectorStoreFactory, GraphStoreFactor
 from .storages_config import StoreConfig
 from .db_stores.base import DBStoreBase
 from .graph_stores.base import GraphStoreBase
-from .vectore_stores.base import VectorStoreBase
+from .vector_stores.base import VectorStoreBase
 from .schema import TableType, AgentStore, WorkflowStore, MemoryStore, HistoryStore
 
 

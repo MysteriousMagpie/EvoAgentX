@@ -48,6 +48,9 @@ async def run_workflow_async(goal: str, progress_cb=None, return_graph: bool = F
 
         def patched_update(message, state=None, error=None, **kwargs):
             asyncio.create_task(progress_cb(str(message)))
+            # Ensure state and error are not None before passing
+            if state is None or error is None:
+                raise ValueError("'state' and 'error' must not be None")
             return orig_update(message, state=state, error=error, **kwargs)
 
         env.update = patched_update  # type: ignore

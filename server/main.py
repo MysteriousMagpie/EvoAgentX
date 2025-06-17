@@ -1,11 +1,14 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+import socketio
 
 from .api.run import router as run_router
 from .api.calendar import calendar_router
 from .core.websocket_manager import manager
 
 app = FastAPI()
+sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins=['http://localhost:5173'])
+sio_app = socketio.ASGIApp(sio, app)
 
 app.add_middleware(
     CORSMiddleware,
@@ -28,6 +31,20 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
+# Example: emit progress event from backend to all clients
+def emit_progress(message: str):
+    import asyncio
+    asyncio.create_task(sio.emit('progress', message))
+
+# Example event handler (optional, can be expanded)
+@sio.event
+def connect(sid, environ):
+    print(f"Socket.IO client connected: {sid}")
+
+@sio.event
+def disconnect(sid):
+    print(f"Socket.IO client disconnected: {sid}")
+
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("server.main:sio_app", host="0.0.0.0", port=8000, reload=True)

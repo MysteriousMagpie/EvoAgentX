@@ -40,8 +40,9 @@ class PromptTemplate(BaseModule):
     def get_instruction(self) -> str:
         return self.instruction
 
-    def get_demonstrations(self) -> List[Any]:
-        return self.demonstrations
+    def get_demonstrations(self) -> list[Any]:
+        # Ensure return is always a list
+        return self.demonstrations if self.demonstrations is not None else []
     
     def get_context(self) -> Optional[str]:
         return self.context
@@ -118,13 +119,17 @@ class PromptTemplate(BaseModule):
         return text
     
     def check_required_inputs(self, inputs_format: Type[LLMOutputParser], values: dict):
-        if inputs_format is None: 
-            return 
+        if inputs_format is None:
+            return
         required_inputs = self.get_required_inputs_or_outputs(inputs_format)
         missing_required_inputs = [field for field in required_inputs if field not in values]
         if missing_required_inputs:
             logger.warning(f"Missing required inputs (without default values) for `{inputs_format.__name__}`: {missing_required_inputs}, will set them to empty strings.")
-    
+            for field in missing_required_inputs:
+                # Try to get a default value if available, else use empty string
+                default = inputs_format.model_fields[field].default
+                values[field] = default if default is not PydanticUndefined else ""
+
     def render_input_example(self, inputs_format: Type[LLMOutputParser], values: dict, missing_field_value: str = "") -> str:
         if inputs_format is None and values is None:
             return ""
@@ -135,7 +140,9 @@ class PromptTemplate(BaseModule):
             field_values = values
         return "\n".join(f"[[ **{field}** ]]:\n{value}" for field, value in field_values.items())
     
-    def get_output_template(self, outputs_format: Type[LLMOutputParser], parse_mode: str="title", title_format: str="## {title}") -> str:
+    def get_output_template(self, outputs_format: Type[LLMOutputParser], parse_mode: str = "title", title_format: str = "## {title}") -> tuple[str, list[str]]:
+        output_template: str = ""
+        output_keys: list[str] = []
         
         if outputs_format is None:
             raise ValueError("`outputs_format` is required in `get_output_format`.")
@@ -151,14 +158,14 @@ class PromptTemplate(BaseModule):
                 json_template += f"    \"{field}\""
                 json_template += f": \"{{{field}}}\",\n" if field in required_fields else f" (Optional): \"{{{field}}}\",\n"
             json_template = json_template.rstrip(",\n") + "\n}}"
-            output_template, output_keys = json_template, fields
+            output_template, output_keys = json_template, [str(f) for f in fields]
         elif parse_mode == "xml":
             xml_template = ""
             for field in fields:
                 xml_template += f"<{field}>\n" if field in required_fields else f"<{field}> (Optional)\n" 
                 xml_template += f"{{{field}}}\n</{field}>\n"
             xml_template = xml_template.rstrip("\n")
-            output_template, output_keys = xml_template, fields
+            output_template, output_keys = xml_template, [str(f) for f in fields]
         elif parse_mode == "title":
             title_template = ""
             for field in fields:
@@ -167,8 +174,7 @@ class PromptTemplate(BaseModule):
                 title_section += f"{{{field}}}\n\n"
                 title_template += title_section
             title_template = title_template.rstrip("\n")
-            output_template, output_keys = title_template, fields
-        
+            output_template, output_keys = title_template, [str(f) for f in fields]
         return output_template, output_keys
 
     def render_instruction(self) -> str:
@@ -266,38 +272,38 @@ class PromptTemplate(BaseModule):
         self,
         inputs_format: Optional[Type[LLMOutputParser]] = None,
         outputs_format: Optional[Type[LLMOutputParser]] = None,
-        values: Optional[dict] = None, 
-        parse_mode: Optional[str] = "title", 
+        values: Optional[dict] = None,
+        parse_mode: Optional[str] = "title",
         title_format: Optional[str] = "## {title}",
-        output_format: Optional[str] = None, 
+        output_format: Optional[str] = None,
         **kwargs
     ) -> str:
-        raise NotImplementedError(f"`format` method is not implemented for `{self.__class__.__name__}`.") 
-
-    def get_config(self) -> dict:
-        return self.to_dict()
+        # Only use methods defined in this class
+        prompt_pieces = []
+        prompt_pieces.append(self.render_instruction())
+        if self.context:
+            prompt_pieces.append(self.render_context())
+        if self.tools:
+            prompt_pieces.append(self.render_tools())
+        if self.constraints:
+            prompt_pieces.append(self.render_constraints())
+        return "\n".join(prompt_pieces)
     
-    def copy(self, **kwargs) -> "PromptTemplate":
-        """
-        Create a deep-copied new PromptTemplate, optionally overriding fields with provided kwargs.
-        """
-        config = self.get_config()
-        new_config = deepcopy(config)
-        new_config = {k: kwargs.get(k, v) for k, v in new_config.items()}
-        return self.__class__.from_dict(new_config)
-
 
 class StringTemplate(PromptTemplate):
-
     def render_demonstrations(
-        self, 
-        inputs_format: Type[LLMOutputParser], 
-        outputs_format: Type[LLMOutputParser], 
-        parse_mode: str, 
-        title_format: str = None, 
-        custom_output_format: str = None, 
+        self,
+        inputs_format: Type[LLMOutputParser],
+        outputs_format: Type[LLMOutputParser],
+        parse_mode: str,
+        title_format: str = "## {title}",
+        custom_output_format: str = "",
         **kwargs
     ) -> str:
+        if custom_output_format is None:
+            custom_output_format = ""
+        if title_format is None:
+            title_format = "## {title}"
         
         if not self.demonstrations:
             return "" 
@@ -337,9 +343,10 @@ class StringTemplate(PromptTemplate):
     #     return ""
     
     def render_inputs(self, inputs_format: Type[LLMOutputParser], values: dict) -> str:
-
-        if (inputs_format is None and values is None) or (inputs_format is not None and len(inputs_format.get_attrs()) == 0):
-            return "" 
+        if inputs_format is None:
+            raise ValueError("inputs_format must not be None")
+        if values is None:
+            values = {}
         # Check if all required fields are provided
         self.check_required_inputs(inputs_format, values)
         input_str = "### Inputs\nThese are the input values provided by the user (with input names emplasized):\n"
@@ -348,231 +355,46 @@ class StringTemplate(PromptTemplate):
         return input_str
 
     def format(
-        self, 
-        system_prompt: Optional[str] = None, 
-        values: Optional[dict] = None, 
-        inputs_format: Optional[Type[LLMOutputParser]] = None, 
-        outputs_format: Optional[Type[LLMOutputParser]] = None, 
-        parse_mode: Optional[str] = "title", 
-        title_format: Optional[str] = "## {title}", 
-        custom_output_format: Optional[str] = None, 
+        self,
+        inputs_format: Optional[Type[LLMOutputParser]] = None,
+        outputs_format: Optional[Type[LLMOutputParser]] = None,
+        values: Optional[dict] = None,
+        parse_mode: Optional[str] = "title",
+        title_format: Optional[str] = "## {title}",
+        output_format: Optional[str] = None,
         **kwargs
     ) -> str:
-        """
-        Format the prompt template.
-
-        Convert the prompt template into a prompt string. 
-        It will sequentially concatenate the following sections (if provided): instruction, context, tools, constraints, demonstrations, history, inputs and outputs.
-
-        Args: 
-            values (Optional[dict]): The values to be used to render the inputs. 
-            inputs_format (Optional[Type[LLMOutputParser]]): Define the input variables. If provided, it will be used to extract inputs (specified in `inputs_format`) from `values` and use them to render the inputs section. 
-                Otherwise, will use all fields in `values` (if provided) directly to render the inputs section. 
-            outputs_format (Optional[Type[LLMOutputParser]]): Define the output variables. If provided, it will be used to construct the output format based on `parse_mode`. 
-                Otherwise, a default output format will be used. 
-            parse_mode (Optional[str]): The mode to parse the outputs, chosen from ["json", "xml", "title", "str", "custom"]. It will be used to construct the output format if `outputs_format` is provided. 
-                Moreover, if `parse_mode` is "title", `title_format` will be used to format the title of the outputs. 
-            title_format (Optional[str]): The format to format the title of the outputs. Default is "## {title}". Only used when `parse_mode` is "title".
-            custom_output_format (Optional[str]): User-specified output format. If provided, it will be directly used in the `Outputs Format` section of the prompt. Otherwise, the output format will be constructed from `outputs_format` and `parse_mode`. 
-            **kwargs: Additional keyword arguments. 
-        
-        Returns: 
-            str: The formatted prompt string.
-        """
-
-        if parse_mode not in PARSER_VALID_MODE:
-            raise ValueError(f"Invalid parse mode `{parse_mode}` for `{self.__class__.__name__}.format`. Valid modes are: {PARSER_VALID_MODE}.")
-
+        # Use only methods defined in this class
+        safe_inputs_format = inputs_format if inputs_format is not None else LLMOutputParser
+        safe_outputs_format = outputs_format if outputs_format is not None else LLMOutputParser
+        safe_title_format = title_format if title_format is not None else "## {title}"
+        safe_output_format = output_format if output_format is not None else ""
+        safe_values = values if values is not None else {}
+        safe_parse_mode = parse_mode if parse_mode is not None else "title"
         prompt_pieces = []
-        prompt_pieces.append(self._render_system_message(system_prompt))
-
+        prompt_pieces.append(self._render_system_message(""))
         if self.demonstrations:
             prompt_pieces.append(
                 self.render_demonstrations(
-                    inputs_format=inputs_format, 
-                    outputs_format=outputs_format, 
-                    parse_mode=parse_mode, 
-                    title_format=title_format, 
-                    custom_output_format=custom_output_format
+                    safe_inputs_format,
+                    safe_outputs_format,
+                    safe_parse_mode,
+                    safe_title_format,
+                    safe_output_format
                 )
             )
-        # if self.history:
-        #     prompt_pieces.append(self.render_history())
-        
-        if inputs_format or values:
+        if safe_inputs_format or safe_values:
             prompt_pieces.append("-"*20)
-            prompt_pieces.append(self.render_inputs(inputs_format, values))
-        
-        # define the output format
-        if custom_output_format:
-            prompt_pieces.append(f"### Outputs Format\n{custom_output_format}")
+            prompt_pieces.append(self.render_inputs(safe_inputs_format, safe_values))
+        if safe_output_format:
+            prompt_pieces.append(f"### Outputs Format\n{safe_output_format}")
         else:
-            prompt_pieces.append(self.render_outputs(outputs_format, parse_mode, title_format))
-        
+            prompt_pieces.append(self.render_outputs(safe_outputs_format, safe_parse_mode, safe_title_format))
         prompt_pieces = [piece for piece in prompt_pieces if piece]
         prompt = "\n".join(prompt_pieces)
         return prompt.strip()
     
 
 class ChatTemplate(StringTemplate):
-
-    def _create_message(self, role: str, content: str) -> dict:
-        """Create a message dictionary with role and content."""
-        return {"role": role, "content": content}
-    
-    def render_demonstrations(
-        self, 
-        inputs_format: Type[LLMOutputParser], 
-        outputs_format: Type[LLMOutputParser], 
-        parse_mode: str, 
-        title_format: str = None, 
-        custom_output_format: str = None
-    ) -> List[dict]:
-        """
-        Render demonstrations as alternating user and assistant messages.
-        """
-
-        if not self.demonstrations:
-            return []
-        
-        if inputs_format is None or outputs_format is None:
-            raise ValueError("`inputs_format` and `outputs_format` are required in `render_demonstrations`.")
-        if len(inputs_format.get_attrs()) == 0 or len(outputs_format.get_attrs()) == 0:
-            raise ValueError("`inputs_format` and `outputs_format` must have at least one attribute.")
-        
-        messages = []
-        for demo in self.demonstrations:
-            # Render user message (input)
-            input_fields = inputs_format.get_attrs()
-            input_values = {field: demo.get(field, "Not provided") for field in input_fields}
-            user_content = self.render_input_example(inputs_format, input_values, missing_field_value="Not provided")
-            messages.append(self._create_message("user", user_content))
-            
-            # Render assistant message (output)
-            output_fields = outputs_format.get_attrs() 
-            output_values = {field: demo.get(field, "Not provided") for field in output_fields}
-            if custom_output_format is not None or parse_mode in [None, "str", "custom"]:
-                assistant_content = "\n".join(f"{field}:\n{value}" for field, value in output_values.items())
-            else:
-                output_template, output_keys = self.get_output_template(outputs_format, parse_mode=parse_mode, title_format=title_format)
-                assistant_content = output_template.format(**output_values)
-                assistant_content = assistant_content.replace("(Optional)", "")
-            messages.append(self._create_message("assistant", assistant_content))
-
-        return messages
-    
-    # def render_history(self) -> List[dict]:
-    #     """Render conversation history as alternating user and assistant messages."""
-    #     raise NotImplementedError("`render_history` method is not supported for `{self.__class__.__name__}`. Returning empty list.") 
-    
-    def render_inputs(self, inputs_format: Optional[Type[LLMOutputParser]], values: Optional[dict]) -> str:
-
-        if (inputs_format is None and values is None) or (inputs_format is not None and len(inputs_format.get_attrs()) == 0):
-            return ""
-        # check if all required inputs are provided
-        self.check_required_inputs(inputs_format, values)
-        input_str = "### Inputs\n"
-        input_str += self.render_input_example(inputs_format, values, missing_field_value="Not provided")
-        input_str += "\n"
-        return input_str
-    
-    def render_current_user_message(
-        self, 
-        values: Optional[dict], 
-        inputs_format: Optional[Type[LLMOutputParser]], 
-        outputs_format: Optional[Type[LLMOutputParser]], 
-        parse_mode: str, 
-        title_format: str, 
-        custom_output_format: Optional[str] = None
-    ) -> str:
-        
-        """Render the current user input message."""
-        input_pieces = []
-        if inputs_format or values:
-            input_pieces.append(self.render_inputs(inputs_format, values))
-        
-        if custom_output_format:
-            input_pieces.append(f"### Outputs Format\n{custom_output_format}")
-        else:
-            input_pieces.append(self.render_outputs(outputs_format, parse_mode, title_format))
-
-        input_pieces = [piece for piece in input_pieces if piece]
-        user_message = "\n".join(input_pieces)
-        return user_message.strip()
-    
-    def format(
-        self, 
-        system_prompt: Optional[str] = None, 
-        values: Optional[dict] = None, 
-        inputs_format: Optional[Type[LLMOutputParser]] = None, 
-        outputs_format: Optional[Type[LLMOutputParser]] = None, 
-        parse_mode: Optional[str] = "title", 
-        title_format: Optional[str] = "## {title}", 
-        custom_output_format: Optional[str] = None,
-        **kwargs
-    ) -> List[dict]:
-        """
-        Format the prompt template into a list of chat messages.
-        
-        The messages will be formatted in the following order:
-        1. System message (containing system prompt, instruction, context, tools, and constraints)
-        2. Few-shot examples (if provided in demonstrations)
-        3. Conversation history (if provided)
-        4. Current user input (with input values and output format requirements)
-        
-        Args:
-            system_prompt (Optional[str]): Additional system prompt to prepend to the template.
-            values (Optional[dict]): The values to be used to render the inputs.
-            inputs_format (Optional[Type[LLMOutputParser]]): Define the input variables.
-            outputs_format (Optional[Type[LLMOutputParser]]): Define the output variables.
-            parse_mode (Optional[str]): The mode to parse the outputs.
-            title_format (Optional[str]): The format to format the title of the outputs.
-            custom_output_format (Optional[str]): User-specified output format.
-            **kwargs: Additional keyword arguments.
-            
-        Returns:
-            List[dict]: A list of chat messages in the format:
-            [
-                {"role": "system", "content": system_message},
-                # Begin few-shot examples
-                {"role": "user", "content": few_shot_example_1_input},
-                {"role": "assistant", "content": few_shot_example_1_output},
-                ...
-                # End few-shot examples
-                {"role": "user", "content": current_input},
-            ]
-        """
-        if parse_mode not in PARSER_VALID_MODE:
-            raise ValueError(f"Invalid parse mode `{parse_mode}` for `{self.__class__.__name__}.prompt`. Valid modes are: {PARSER_VALID_MODE}.")
-            
-        messages = []
-        
-        # Add system message
-        system_content = self._render_system_message(system_prompt)
-        messages.append(self._create_message("system", system_content))
-        
-        # Add few-shot examples
-        if self.demonstrations:
-            messages.extend(
-                self.render_demonstrations(
-                    inputs_format=inputs_format, 
-                    outputs_format=outputs_format, 
-                    parse_mode=parse_mode, 
-                    title_format=title_format, 
-                    custom_output_format=custom_output_format
-                )
-            )
-        
-        # Add current user input & output format requirements
-        current_input = self.render_current_user_message(
-            values=values, 
-            inputs_format=inputs_format, 
-            outputs_format=outputs_format, 
-            parse_mode=parse_mode, 
-            title_format=title_format,
-            custom_output_format=custom_output_format
-        )
-        messages.append(self._create_message("user", current_input))
-        
-        return messages
-        
+    # Inherit all methods from StringTemplate without override
+    pass

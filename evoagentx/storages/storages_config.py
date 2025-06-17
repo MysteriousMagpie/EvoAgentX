@@ -9,7 +9,7 @@ class DBConfig(BaseConfig):
     """
     Defines settings for connecting to a database, such as SQLite or PostgreSQL.
     """
-    db_name: str = Field(default="sqlite", description="Name of the database provider (e.g., 'sqlite', 'posgre_sql')")
+    db_name: str = Field(default="sqlite", description="Name of the database provider (e.g., 'sqlite', 'postgresql')")
     path: Optional[str] = Field(default="", description="File path for file-based databases (e.g., SQLite)")
     ip: Optional[str] = Field(default="", description="IP address for network-based databases")
     port: Optional[str] = Field(default="", description="Port for network-based databases")

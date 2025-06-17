@@ -33,7 +33,7 @@ class DBStoreFactory:
     """
     provider_to_class = {
         "sqlite": "evoagentx.storages.db_stores.sqlite.SQLite",
-        "posgre_sql": "evoagentx.storages.db_stores.posgre_sql.",  # Note: Incomplete path, likely a placeholder
+        "postgresql": "evoagentx.storages.db_stores.postgresql.PostgreSQL",
     }
 
     @classmethod
@@ -42,7 +42,7 @@ class DBStoreFactory:
         Create a database store instance for the specified provider.
 
         Attributes:
-            provider_name (str): Name of the database provider (e.g., 'sqlite', 'posgre_sql').
+            provider_name (str): Name of the database provider (e.g., 'sqlite', 'postgresql').
             config (DBConfig): Configuration for the database store.
 
         Returns:

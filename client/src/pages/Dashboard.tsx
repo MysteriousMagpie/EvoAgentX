@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { io } from 'socket.io-client';
 import GoalInput from '../components/GoalInput';
 import OutputPanel from '../components/OutputPanel';
 import Loader from '../components/Loader';
@@ -10,26 +11,25 @@ export default function Dashboard() {
     loading,
     error,
     graph,
-    activeTask,
     setLoading,
     setError,
     addProgress,
     setOutput,
     setGraph,
-    setActiveTask,
     setTokenUsage,
     reset
   } = useRunStore();
 
   useEffect(() => {
-    const ws = new WebSocket('ws://localhost:8000/ws');
-    ws.onmessage = ev => {
-      addProgress(ev.data);
-      const match = /Task:\s*([^\n(]+)/.exec(ev.data);
-      if (match) setActiveTask(match[1].trim());
-    };
-    return () => ws.close();
-  }, [addProgress, setActiveTask]);
+    const socket = io('http://localhost:8000'); // Adjust port if needed
+    socket.on('connect', () => {
+      console.log('🟢 Socket.IO connected:', socket.id);
+    });
+    socket.on('progress', (data: string) => {
+      addProgress(data);
+    });
+    return () => { socket.disconnect(); };
+  }, [addProgress]);
 
   const run = async (goal: string) => {
     setLoading(true);
