@@ -9,7 +9,6 @@ from evoagentx.storages.storages_config import (
 )
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
-from typing import cast
 from evoagentx.utils import factory
 from evoagentx.utils import calendar as cal
 warnings.filterwarnings("ignore", "`timeout`", DeprecationWarning)
