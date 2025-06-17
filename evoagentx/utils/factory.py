@@ -2,7 +2,7 @@ import importlib
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover - only for type checking
-    from ..storages.storages_config import DBConfig, VectorStoreConfig
+    from ..storages.storages_config import DBConfig, VectorStoreConfig, GraphStoreConfig
 
 
 def load_class(class_type: str):
@@ -99,7 +99,7 @@ class GraphStoreFactory:
     }
 
     @classmethod
-    def create(cls, config: "storages_config.GraphStoreConfig | dict"):
+    def create(cls, config: "GraphStoreConfig | dict"):
         """Create a graph store instance from configuration."""
         from ..storages import storages_config  # avoid circular import
 
