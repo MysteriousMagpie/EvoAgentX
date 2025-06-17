@@ -1,6 +1,8 @@
 import importlib
 from typing import TYPE_CHECKING
 
+from ..storages import storages_config
+
 if TYPE_CHECKING:  # pragma: no cover - only for type checking
     from ..storages.storages_config import DBConfig, VectorStoreConfig, GraphStoreConfig
 
@@ -49,8 +51,6 @@ class DBStoreFactory:
         Raises:
             ValueError: If the provider is not supported.
         """
-        from ..storages import storages_config  # local import to avoid cycle
-
         if isinstance(config, storages_config.DBConfig):
             config_dict = config.model_dump()
         else:
@@ -74,7 +74,6 @@ class VectorStoreFactory:
     @classmethod
     def create(cls, config: "VectorStoreConfig | dict"):
         """Create a vector store instance from the provided configuration."""
-        from ..storages import storages_config  # avoid circular import
 
         if isinstance(config, storages_config.VectorStoreConfig):
             cfg_dict = config.model_dump()
@@ -101,7 +100,6 @@ class GraphStoreFactory:
     @classmethod
     def create(cls, config: "GraphStoreConfig | dict"):
         """Create a graph store instance from configuration."""
-        from ..storages import storages_config  # avoid circular import
 
         if isinstance(config, storages_config.GraphStoreConfig):
             cfg_dict = config.model_dump()
