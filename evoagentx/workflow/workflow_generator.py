@@ -47,11 +47,10 @@ class WorkFlowGenerator(BaseModule):
                 raise ValueError("Must provide `llm` when `agent_generator` is None")
             self.agent_generator = AgentGenerator(llm=self.llm)
         
-        # TODO add WorkFlowReviewer
-        # if self.workflow_reviewer is None:
-        #     if self.llm is None:
-        #         raise ValueError(f"Must provide `llm` when `workflow_reviewer` is None")
-        #     self.workflow_reviewer = WorkFlowReviewer(llm=self.llm)
+        if self.workflow_reviewer is None:
+            if self.llm is None:
+                raise ValueError("Must provide `llm` when `workflow_reviewer` is None")
+            self.workflow_reviewer = WorkFlowReviewer(llm=self.llm)
 
     def _execute_with_retry(self, operation_name: str, operation, retries_left: int = 1, **kwargs):
         """Helper method to execute operations with retry logic.
@@ -167,20 +166,29 @@ class WorkFlowGenerator(BaseModule):
             subtask_fields = ["name", "description", "reason", "inputs", "outputs"]
             subtask_data = {key: value for key, value in subtask.to_dict(ignore=["class_name"]).items() if key in subtask_fields}
             subtask_desc = json.dumps(subtask_data, indent=4)
-            agent_generation_action_data = {"goal": goal, "workflow": workflow_desc, "task": subtask_desc}
+            existing_agents_str = ""
+            if existing_agents:
+                existing_agents_str = json.dumps([agent.get_config() if isinstance(agent, Agent) else agent for agent in existing_agents], indent=4)
+
+            agent_generation_action_data = {
+                "goal": goal,
+                "workflow": workflow_desc,
+                "task": subtask_desc,
+                "existing_agents": existing_agents_str,
+            }
             logger.info(f"Generating agents for subtask: {subtask_data['name']}")
             agents: AgentGenerationOutput = agent_generator.execute(
-                action_name=agent_generation_action_name, 
+                action_name=agent_generation_action_name,
                 action_input_data=agent_generation_action_data,
                 return_msg_type=MessageType.RESPONSE
             ).content
-            # todo I only handle generated agents
-            generated_agents = []
-            for agent in agents.generated_agents:
-                agent_dict = agent.to_dict(ignore=["class_name"])
-                # agent_dict["llm_config"] = self.llm.config.to_dict()
-                generated_agents.append(agent_dict)
-            subtask.set_agents(agents=generated_agents)
+            generated_agents = [agent.to_dict(ignore=["class_name"]) for agent in agents.generated_agents]
+
+            selected_agents = []
+            if existing_agents:
+                selected_agents = [agent.get_config() if isinstance(agent, Agent) else agent for agent in existing_agents if agent.name in agents.selected_agents]
+
+            subtask.set_agents(agents=selected_agents + generated_agents)
         return workflow
     
     # def review_plan(self, goal: str, )
