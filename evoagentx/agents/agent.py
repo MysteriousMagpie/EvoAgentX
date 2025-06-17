@@ -12,6 +12,7 @@ from ..models.base_model import BaseLLM
 from ..memory.memory import ShortTermMemory
 from ..memory.long_term_memory import LongTermMemory
 from ..memory.memory_manager import MemoryManager
+from ..memory.utils import create_long_term_memory, create_memory_manager
 from ..storages.base import StorageHandler
 from ..actions.action import Action
 from ..actions.action import ContextExtraction
@@ -296,14 +297,16 @@ class Agent(BaseModule):
         Initialize long-term memory components.
         """
         assert self.storage_handler is not None, "must provide ``storage_handler`` when use_long_term_memory=True"
-        # TODO revise the initialisation of long_term_memory and long_term_memory_manager
-        if not self.long_term_memory:
-            self.long_term_memory = LongTermMemory()
-        if not self.long_term_memory_manager:
-            self.long_term_memory_manager = MemoryManager(
-                storage_handler=self.storage_handler,
-                memory=self.long_term_memory
-            )
+
+        self.long_term_memory = create_long_term_memory(
+            storage_handler=self.storage_handler,
+            memory=self.long_term_memory,
+        )
+        self.long_term_memory_manager = create_memory_manager(
+            storage_handler=self.storage_handler,
+            memory_manager=self.long_term_memory_manager,
+            memory=self.long_term_memory,
+        )
     
     def init_context_extractor(self):
         """
