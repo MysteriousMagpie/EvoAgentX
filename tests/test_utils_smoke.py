@@ -1,14 +1,12 @@
 import json
-import types
-import sys
 import warnings
 
 from evoagentx.utils.utils import safe_remove, generate_dynamic_class_name, normalize_text
 from evoagentx.utils.sanitize import syntax_check
 import evoagentx.utils.aflow_utils.data_utils as du
-setattr(du.test_case_2_test_function, "__test__", False)
-
 from evoagentx.utils.factory import load_class
+
+setattr(du.test_case_2_test_function, "__test__", False)
 warnings.filterwarnings("ignore", "`timeout`", DeprecationWarning)
 
 
