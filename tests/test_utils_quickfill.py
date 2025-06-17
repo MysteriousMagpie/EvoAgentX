@@ -6,13 +6,15 @@ Tiny smoke tests that exercise the hottest uncovered helpers:
 • evoagentx.utils.factory     –  DB/Vector/Graph Store factories’ unhappy paths
 """
 
-from pathlib import Path
 import sys
 import textwrap
 import types
+import warnings
+
 import pytest
 from evoagentx.storages.storages_config import DBConfig, VectorStoreConfig
-import warnings
+from evoagentx.utils import factory
+from evoagentx.utils import sanitize
 
 # ----------------------------------------------------------------------
 # utils.utils
@@ -41,7 +43,6 @@ def test_normalize_text_variants(raw, expected):
 # ----------------------------------------------------------------------
 # utils.sanitize  – we just want to tick the happy path & dependency graph.
 # ----------------------------------------------------------------------
-from evoagentx.utils import sanitize
 warnings.filterwarnings("ignore", "`timeout`", DeprecationWarning)
 
 SAMPLE = textwrap.dedent(
@@ -69,9 +70,6 @@ def test_sanitize_entrypoint():
 # ----------------------------------------------------------------------
 # utils.factory  – cover unsupported providers + happy vector stub.
 # ----------------------------------------------------------------------
-from evoagentx.utils import factory
-
-
 def test_db_factory_unsupported():
     with pytest.raises(ValueError):
         cfg = DBConfig(db_name="oracle")
