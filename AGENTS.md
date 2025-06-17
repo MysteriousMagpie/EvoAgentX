@@ -12,6 +12,7 @@
   python run_evoagentx.py
   ```
   Enter a goal when prompted to start execution.
+- Tests rely on packages like `requests`, `httpx`, `pyyaml`, and `numpy`. Run `pip install -e .[dev]` or `pip install -r requirements.txt` before executing tests.
 - Execute tests using `pytest -q`.
 
 ## CodeAgent Configuration Prompt

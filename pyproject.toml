@@ -69,7 +69,9 @@ dev = [
     "pytest-subtests",
     "pytest-json-report",
     "ruff",
-    "fakeredis"
+    "fakeredis",
+    "requests",
+    "pyyaml",
 ]
 
 [project.urls]
