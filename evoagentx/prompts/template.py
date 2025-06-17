@@ -117,13 +117,17 @@ class PromptTemplate(BaseModule):
 
         return text
     
-    def check_required_inputs(self, inputs_format: Type[LLMOutputParser], values: dict):
-        if inputs_format is None: 
-            return 
+    def check_required_inputs(self, inputs_format: Type[LLMOutputParser], values: dict, missing_field_value: str = ""):
+        if inputs_format is None:
+            return
         required_inputs = self.get_required_inputs_or_outputs(inputs_format)
         missing_required_inputs = [field for field in required_inputs if field not in values]
         if missing_required_inputs:
-            logger.warning(f"Missing required inputs (without default values) for `{inputs_format.__name__}`: {missing_required_inputs}, will set them to empty strings.")
+            logger.warning(
+                f"Missing required inputs (without default values) for `{inputs_format.__name__}`: {missing_required_inputs}, will set them to empty strings."
+            )
+            for field in missing_required_inputs:
+                values[field] = missing_field_value
     
     def render_input_example(self, inputs_format: Type[LLMOutputParser], values: dict, missing_field_value: str = "") -> str:
         if inputs_format is None and values is None:

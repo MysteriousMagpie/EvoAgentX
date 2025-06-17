@@ -1,6 +1,7 @@
 import pytest
 from evoagentx.prompts.template import PromptTemplate
 from evoagentx.tools.tool import Tool
+from evoagentx.models.base_model import LLMOutputParser
 from typing import List, Dict, Any, Callable
 
 class SimpleTool(Tool):
@@ -44,3 +45,17 @@ def test_render_tools_mismatch():
     tmpl = PromptTemplate(instruction="instr", tools=[BadTool()])
     with pytest.raises(ValueError):
         tmpl.render_tools()
+
+
+class SimpleInput(LLMOutputParser):
+    required_field: str
+    optional_field: str = "opt"
+
+
+def test_missing_required_inputs_are_added():
+    tmpl = PromptTemplate(instruction="instr")
+    values = {}
+    tmpl.check_required_inputs(SimpleInput, values)
+    assert "required_field" in values
+    assert values["required_field"] == ""
+    assert "optional_field" not in values
