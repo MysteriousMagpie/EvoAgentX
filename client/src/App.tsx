@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Navbar from '../components/Navbar';
+import Sidebar from './components/Sidebar';
+import Navbar from './components/Navbar';
+import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Planner from './pages/Planner';
 import { getSocket } from './socket';
@@ -35,21 +37,19 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Navbar darkMode={darkMode} setDarkMode={setDarkMode} />
-      <div className="grid grid-cols-3 gap-6 p-8 pt-12 bg-gray-50 dark:bg-gray-950 min-h-screen">
-        {/* Left: Workflow Graph */}
-        <section className="col-span-2 bg-white dark:bg-gray-900 rounded-lg shadow p-4 min-h-[600px]">
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/planner" element={<Planner />} />
-            {/* <Route path="/runs" element={<History />} /> */}
-          </Routes>
-        </section>
-        {/* Right: Control Panel */}
-        <aside className="flex flex-col space-y-6">
-          {/* The right pane content will be handled in Dashboard */}
-        </aside>
+      {/* Mobile top nav */}
+      <div className="md:hidden">
+        <Navbar darkMode={darkMode} setDarkMode={setDarkMode} />
       </div>
+      {/* Sidebar for md+ screens */}
+      <Sidebar darkMode={darkMode} setDarkMode={setDarkMode} />
+      <main className="p-4 md:p-8 md:ml-64 bg-gray-50 dark:bg-gray-950 min-h-screen">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/planner" element={<Planner />} />
+        </Routes>
+      </main>
     </BrowserRouter>
   );
 }

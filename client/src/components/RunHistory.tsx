@@ -1,15 +1,14 @@
-import { useState } from 'react';
+import type { RunRecord } from '../store/useRunStore';
 
-const mockRuns = [
-  { id: 1, goal: 'Draft a 300-word blog post on regenerative agriculture.', status: '✅', tokens: 1200, cost: 0.12, time: '2025-06-17 10:12' },
-  { id: 2, goal: 'Summarize the latest AI research.', status: '❌', tokens: 800, cost: 0.08, time: '2025-06-16 15:40' },
-  { id: 3, goal: 'Write a poem about mushrooms.', status: '✅', tokens: 600, cost: 0.06, time: '2025-06-15 09:22' },
-];
-
-export default function RunHistory({ onSelect, selectedId }: { onSelect: (id: number) => void, selectedId: number | null }) {
+interface RunHistoryProps {
+  runs: RunRecord[];
+  onSelect: (id: number) => void;
+  selectedId: number | null;
+}
+export default function RunHistory({ runs, onSelect, selectedId }: RunHistoryProps) {
   return (
     <ul className="divide-y divide-gray-200 dark:divide-gray-800">
-      {mockRuns.map(run => (
+      {runs.map(run => (
         <li
           key={run.id}
           className={`py-2 px-2 rounded cursor-pointer flex items-center justify-between transition-colors ${selectedId === run.id ? 'bg-primary/10 dark:bg-primary/20' : 'hover:bg-gray-100 dark:hover:bg-gray-800'}`}
