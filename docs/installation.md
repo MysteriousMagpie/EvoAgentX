@@ -68,3 +68,13 @@ print(evoagentx.__version__)
 
 You should see the current version of EvoAgentX printed to the console.
 
+## Database Backends
+
+If you plan to use the PostgreSQL storage backend, you must also install the PostgreSQL driver:
+
+```bash
+pip install psycopg2-binary
+```
+
+You will also need a running PostgreSQL server. Configure your connection settings as needed in your application.
+

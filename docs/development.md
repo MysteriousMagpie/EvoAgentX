@@ -31,6 +31,16 @@ npm install
 
 Set your `OPENAI_API_KEY` as described in the [Quickstart Guide](quickstart.md#api-key--llm-setup).
 
+## Database Dependencies
+
+- If you use the PostgreSQL backend, install the driver:
+
+```bash
+pip install psycopg2-binary
+```
+
+- Ensure you have access to a running PostgreSQL server and configure your connection as needed.
+
 ## Running Tests
 
 Execute the unit tests before submitting changes:
