@@ -1,4 +1,6 @@
 import argparse
+import sys
+from .self_improve import self_improve
 from .tools.interpreter_docker import DockerInterpreter, DockerLimits, ALLOWED_RUNTIMES
 
 
@@ -14,6 +16,17 @@ def run(argv=None):
     run_parser.add_argument("--pids", default=64, type=int, help="PID limit")
     run_parser.add_argument("--timeout", default=20, type=int, help="Execution timeout")
 
+    # Interactive self-improvement command
+    improv_parser = subparsers.add_parser(
+        "self-improve", help="Interactive self-improvement workflow"
+    )
+    improv_parser.add_argument(
+        "--goal", help="Text goal for improvement (will prompt if omitted)"
+    )
+    improv_parser.add_argument(
+        "--max-cycles", type=int, default=3, help="Max improvement iterations"
+    )
+
     args = parser.parse_args(argv)
 
     if args.command == "run":
@@ -25,6 +38,14 @@ def run(argv=None):
         output = interpreter.execute(args.code, language)
         print(output)
         return output
+    elif args.command == "self-improve":
+        # Prompt for goal if not provided
+        goal = args.goal or input("What would you like to improve? ")
+        print(f"Starting self-improvement with goal: '{goal}'")
+        # Run workflow interactively with simple updates
+        decision = self_improve(goal, llm=None, max_cycles=args.max_cycles)
+        print(f"Final decision: {decision}")
+        sys.exit(0)
 
 
 if __name__ == "__main__":
