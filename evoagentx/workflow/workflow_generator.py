@@ -57,7 +57,11 @@ class WorkFlowGenerator(BaseModule):
                 raise ValueError("Must provide `llm` when `workflow_reviewer` is None")
             assert isinstance(self.llm, BaseLLM), "LLM instance is required"
             from typing import cast
-            self.workflow_reviewer = cast(WorkFlowReviewer, WorkFlowReviewer(llm=self.llm))
+            self.workflow_reviewer = cast(WorkFlowReviewer, WorkFlowReviewer(
+                llm=self.llm,
+                name="Workflow Reviewer",
+                description="Agent responsible for reviewing workflow plans and agents."
+            ))
 
     def _execute_with_retry(self, operation_name: str, operation, retries_left: int = 1, **kwargs) -> tuple[Any, int]:
         """Helper method to execute operations with retry logic.
@@ -82,10 +86,12 @@ class WorkFlowGenerator(BaseModule):
                 result = operation(**kwargs)
                 return result, cur_retries
             except Exception as e:
-                if cur_retries == retries_left:
-                    raise ValueError(f"Failed to {operation_name} after {cur_retries + 1} attempts.\nError: {e}")
+                import traceback
+                tb_str = traceback.format_exc()
                 sleep_time = 2 ** cur_retries
-                logger.error(f"Failed to {operation_name} in {cur_retries + 1} attempts. Retry after {sleep_time} seconds.\nError: {e}")
+                logger.error(f"Failed to {operation_name} in {cur_retries + 1} attempts. Retry after {sleep_time} seconds.\nError: {e}\nTraceback:\n{tb_str}")
+                if cur_retries == retries_left:
+                    raise ValueError(f"Failed to {operation_name} after {cur_retries + 1} attempts.\nError: {e}\nTraceback:\n{tb_str}")
                 time.sleep(sleep_time)
                 cur_retries += 1
 

@@ -4,7 +4,7 @@ export default function Sidebar({ darkMode, setDarkMode }: { darkMode: boolean; 
   return (
     <aside className="hidden md:flex fixed inset-y-0 left-0 w-64 bg-gray-800 dark:bg-gray-900 text-gray-100 flex flex-col justify-between">
       <div className="p-6">
-        <img src="/assets/EAXLoGo.svg" alt="Logo" className="h-10 mb-4" />
+        {/* Logo removed to prevent blocking content */}
         <nav className="space-y-2">
           <NavLink
             to="/"

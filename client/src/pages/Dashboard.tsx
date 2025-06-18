@@ -71,10 +71,30 @@ export default function Dashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ goal })
       });
-      if (!res.ok) throw new Error(`Status ${res.status}`);
+      if (!res.ok) {
+        let msg = `Status ${res.status}`;
+        try {
+          const data = await res.json();
+          if (data && data.detail && typeof data.detail === 'string') {
+            msg = data.detail;
+          }
+        } catch {}
+        // Check for LLM API key errors
+        if (msg.toLowerCase().includes('invalid api key') || msg.toLowerCase().includes('authenticationerror') || res.status === 401) {
+          setError('LLM API key is invalid or missing. Please check your backend configuration.');
+        } else {
+          setError(msg);
+        }
+        return;
+      }
       // No need to set output/graph here, will be handled by socket events
     } catch (err: any) {
-      setError(err.message);
+      const msg = err.message || String(err);
+      if (msg.toLowerCase().includes('invalid api key') || msg.toLowerCase().includes('authenticationerror')) {
+        setError('LLM API key is invalid or missing. Please check your backend configuration.');
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
       // Refresh run history

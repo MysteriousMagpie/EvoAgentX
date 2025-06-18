@@ -1,11 +1,9 @@
-import React from 'react';
 import { NavLink } from 'react-router-dom';
 
 export default function Navbar({ darkMode, setDarkMode }: { darkMode: boolean, setDarkMode: (v: boolean) => void }) {
   return (
     <nav className="sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between px-8 py-3 shadow-sm">
       <div className="flex items-center gap-3">
-        <img src="/assets/EAXLoGo.svg" alt="EvoAgentX Logo" className="h-8 w-8" />
         <span className="font-bold text-xl tracking-tight text-primary">EvoAgentX</span>
         <NavLink to="/" className="ml-6 text-gray-700 dark:text-gray-200 hover:text-primary">Agent Hub</NavLink>
         <NavLink to="/planner" className="ml-4 text-gray-700 dark:text-gray-200 hover:text-primary">Planner</NavLink>
