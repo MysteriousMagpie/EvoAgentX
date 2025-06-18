@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
-import { io } from 'socket.io-client';
+import { useEffect, useState } from 'react';
 import GoalInput from '../components/GoalInput';
 import OutputPanel from '../components/OutputPanel';
 import Loader from '../components/Loader';
 import WorkflowGraph from '../components/WorkflowGraph';
 import { useRunStore } from '../store/useRunStore';
+import { getSocket } from '../socket';
+import Toast from '../components/Toast';
 
 export default function Dashboard() {
   const {
@@ -17,19 +18,40 @@ export default function Dashboard() {
     setOutput,
     setGraph,
     setTokenUsage,
+    setActiveTask,
     reset
   } = useRunStore();
+  const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
-    const socket = io('http://localhost:8000'); // Adjust port if needed
-    socket.on('connect', () => {
-      console.log('🟢 Socket.IO connected:', socket.id);
-    });
-    socket.on('progress', (data: string) => {
-      addProgress(data);
-    });
-    return () => { socket.disconnect(); };
-  }, [addProgress]);
+    if (error) setShowToast(true);
+  }, [error]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    const onProgress = (data: string) => addProgress(data);
+    const onOutput = (data: string) => setOutput(data);
+    const onGraph = (data: any) => setGraph(data);
+    const onTokenUsage = (usage: number) => setTokenUsage(usage);
+    const onActiveTask = (task: string) => setActiveTask(task);
+    const onError = (msg: string) => setError(msg);
+
+    socket.on('progress', onProgress);
+    socket.on('output', onOutput);
+    socket.on('graph', onGraph);
+    socket.on('token_usage', onTokenUsage);
+    socket.on('active_task', onActiveTask);
+    socket.on('error', onError);
+
+    return () => {
+      socket.off('progress', onProgress);
+      socket.off('output', onOutput);
+      socket.off('graph', onGraph);
+      socket.off('token_usage', onTokenUsage);
+      socket.off('active_task', onActiveTask);
+      socket.off('error', onError);
+    };
+  }, [addProgress, setOutput, setGraph, setTokenUsage, setActiveTask, setError]);
 
   const run = async (goal: string) => {
     setLoading(true);
@@ -43,10 +65,7 @@ export default function Dashboard() {
         body: JSON.stringify({ goal })
       });
       if (!res.ok) throw new Error(`Status ${res.status}`);
-      const data = await res.json();
-      setOutput(data.output);
-      setGraph(data.graph);
-      if (data.token_usage) setTokenUsage(data.token_usage);
+      // No need to set output/graph here, will be handled by socket events
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -61,7 +80,7 @@ export default function Dashboard() {
       {graph && <WorkflowGraph />}
       <OutputPanel />
       {loading && <Loader />}
-      {error && <p className="text-red-600 mt-2">{error}</p>}
+      <Toast message={showToast ? error : ''} onClose={() => setShowToast(false)} />
     </div>
   );
 }

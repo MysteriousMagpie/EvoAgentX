@@ -79,3 +79,39 @@ pnpm dev
 ```
 
 See the [README](../README.md#quick-start-full-stack) for details.
+
+## Running the Backend and Frontend (Full Stack)
+
+To run both the FastAPI backend (with Socket.IO support) and the React frontend:
+
+1. **Start the backend with Socket.IO:**
+
+```bash
+uvicorn server.main:sio_app --reload
+```
+
+- This exposes both REST API and Socket.IO endpoints on `http://localhost:8000`.
+
+2. **Start the frontend (Vite):**
+
+```bash
+cd client
+npm install # or pnpm install
+npm run dev
+```
+
+- The frontend will be available at `http://localhost:5173` by default (see `vite.config.ts`).
+
+3. **(Optional) Use the provided script:**
+
+You can use the `start-dev.sh` script to launch both servers:
+
+```bash
+bash start-dev.sh
+```
+
+---
+
+**Note:**
+- The frontend (`localhost:5173`) proxies API and Socket.IO requests to the backend (`localhost:8000`).
+- Make sure you always run the backend as `sio_app` for Socket.IO support.

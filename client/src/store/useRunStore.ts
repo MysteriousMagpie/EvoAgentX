@@ -5,9 +5,14 @@ export interface GraphData {
   edges?: { source: string; target: string }[];
 }
 
+export interface ProgressItem {
+  message: string;
+  timestamp: string;
+}
+
 interface RunState {
   output: string;
-  progress: string[];
+  progress: ProgressItem[];
   loading: boolean;
   error: string;
   graph: GraphData | null;
@@ -33,7 +38,7 @@ export const useRunStore = create<RunState>(set => ({
   tokenUsage: 0,
   setLoading: loading => set({ loading }),
   setError: error => set({ error }),
-  addProgress: msg => set(state => ({ progress: [...state.progress, msg] })),
+  addProgress: msg => set(state => ({ progress: [...state.progress, { message: msg, timestamp: new Date().toISOString() }] })),
   setOutput: output => set({ output }),
   setGraph: graph => set({ graph }),
   setActiveTask: task => set({ activeTask: task }),
