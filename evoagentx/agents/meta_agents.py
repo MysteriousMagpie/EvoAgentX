@@ -4,27 +4,27 @@ from evoagentx.agents.agent_manager import AgentManager
 # Meta-Agents for self-improvement workflow
 
 class CodeSearchAgent(Agent):
-    name = "CodeSearchAgent"
-    description = "Given a regex or string, list files & line numbers."
+    name: str = "CodeSearchAgent"
+    description: str = "Given a regex or string, list files & line numbers."
     def act(self, query: str) -> str:
         return AgentManager.toolbox["shell.run"](f"grep -Rn {query} .")
 
 class RefactorAgent(Agent):
-    name = "RefactorAgent"
-    description = "Edit these files to satisfy the task."
+    name: str = "RefactorAgent"
+    description: str = "Edit these files to satisfy the task."
     def act(self, path: str, content: str) -> str:
         AgentManager.toolbox["file.write"](path, content)
         return f"Refactored {path}"
 
 class TestAgent(Agent):
-    name = "TestAgent"
-    description = "Run tests & linters, return summary."
+    name: str = "TestAgent"
+    description: str = "Run tests & linters, return summary."
     def act(self) -> str:
         return AgentManager.toolbox["shell.run"]("pytest -q && ruff check .")
 
 class CriticAgent(Agent):
-    name = "CriticAgent"
-    description = "Read diff + test output. Decide: accept / retry."
+    name: str = "CriticAgent"
+    description: str = "Read diff + test output. Decide: accept / retry."
     def act(self, diff: str, test_output: str) -> str:
         """Score the result and decide accept/retry per heuristic."""
         score = 0
@@ -50,7 +50,7 @@ class CriticAgent(Agent):
             return '{"decision": "retry", "feedback": "%s"}' % " ".join(feedback)
 
 class PRAgent(Agent):
-    name = "PRAgent"
-    description = "Commit & push branch 'self-improve-{hash}'."
+    name: str = "PRAgent"
+    description: str = "Commit & push branch 'self-improve-{hash}'."
     def act(self, branch: str) -> str:
         return AgentManager.toolbox["shell.run"](f"git add . && git commit -m 'self-improve' && git push origin {branch}")
