@@ -1,5 +1,5 @@
 import json
-from typing import Optional, List
+from typing import Optional, List, cast, Any, Union
 from pydantic import Field, PositiveInt 
 
 import time
@@ -40,19 +40,26 @@ class WorkFlowGenerator(BaseModule):
         if self.task_planner is None:
             if self.llm is None:
                 raise ValueError("Must provide `llm` when `task_planner` is None")
-            self.task_planner = TaskPlanner(llm=self.llm)
+            # narrow llm to BaseLLM and cast for type checker
+            assert isinstance(self.llm, BaseLLM), "LLM instance is required"
+            from typing import cast
+            self.task_planner = cast(TaskPlanner, TaskPlanner(llm=self.llm))
         
         if self.agent_generator is None:
             if self.llm is None:
                 raise ValueError("Must provide `llm` when `agent_generator` is None")
-            self.agent_generator = AgentGenerator(llm=self.llm)
+            assert isinstance(self.llm, BaseLLM), "LLM instance is required"
+            from typing import cast
+            self.agent_generator = cast(AgentGenerator, AgentGenerator(llm=self.llm))
         
         if self.workflow_reviewer is None:
             if self.llm is None:
                 raise ValueError("Must provide `llm` when `workflow_reviewer` is None")
-            self.workflow_reviewer = WorkFlowReviewer(llm=self.llm)
+            assert isinstance(self.llm, BaseLLM), "LLM instance is required"
+            from typing import cast
+            self.workflow_reviewer = cast(WorkFlowReviewer, WorkFlowReviewer(llm=self.llm))
 
-    def _execute_with_retry(self, operation_name: str, operation, retries_left: int = 1, **kwargs):
+    def _execute_with_retry(self, operation_name: str, operation, retries_left: int = 1, **kwargs) -> tuple[Any, int]:
         """Helper method to execute operations with retry logic.
         
         Args:
@@ -81,6 +88,9 @@ class WorkFlowGenerator(BaseModule):
                 logger.error(f"Failed to {operation_name} in {cur_retries + 1} attempts. Retry after {sleep_time} seconds.\nError: {e}")
                 time.sleep(sleep_time)
                 cur_retries += 1
+
+        # End of retry loop; should never reach here
+        raise AssertionError("_execute_with_retry: unreachable code path")
 
     def generate_workflow(self, goal: str, existing_agents: Optional[List[Agent]] = None, retry: int = 1, **kwargs) -> WorkFlowGraph:
         # Validate input
@@ -140,14 +150,18 @@ class WorkFlowGenerator(BaseModule):
     def generate_plan(self, goal: str, history: Optional[str] = None, suggestion: Optional[str] = None) -> TaskPlanningOutput:
         history = "" if history is None else history
         suggestion = "" if suggestion is None else suggestion
+        # ensure task_planner is available
+        assert self.task_planner is not None, "TaskPlanner not initialized"
         task_planner: TaskPlanner = self.task_planner
         task_planning_action_data = {"goal": goal, "history": history, "suggestion": suggestion}
         task_planning_action_name = task_planner.task_planning_action_name
-        message: Message = task_planner.execute(
+        # execute and unwrap message
+        result = task_planner.execute(
             action_name=task_planning_action_name,
             action_input_data=task_planning_action_data,
             return_msg_type=MessageType.REQUEST
         )
+        message = result[0] if isinstance(result, tuple) else result
         return message.content
     
     def generate_agents(
@@ -159,10 +173,12 @@ class WorkFlowGenerator(BaseModule):
         # suggestion: Optional[str] = None
     ) -> WorkFlowGraph:
         
+        # ensure agent_generator is available
+        assert self.agent_generator is not None, "AgentGenerator not initialized"
         agent_generator: AgentGenerator = self.agent_generator
         workflow_desc = workflow.get_workflow_description()
         agent_generation_action_name = agent_generator.agent_generation_action_name
-        for subtask in workflow.nodes:
+        for subtask in workflow.nodes or []:
             subtask_fields = ["name", "description", "reason", "inputs", "outputs"]
             subtask_data = {key: value for key, value in subtask.to_dict(ignore=["class_name"]).items() if key in subtask_fields}
             subtask_desc = json.dumps(subtask_data, indent=4)
@@ -177,23 +193,27 @@ class WorkFlowGenerator(BaseModule):
                 "existing_agents": existing_agents_str,
             }
             logger.info(f"Generating agents for subtask: {subtask_data['name']}")
-            agents: AgentGenerationOutput = agent_generator.execute(
+            # execute and unwrap
+            result = agent_generator.execute(
                 action_name=agent_generation_action_name,
                 action_input_data=agent_generation_action_data,
                 return_msg_type=MessageType.RESPONSE
-            ).content
+            )
+            response = result[0] if isinstance(result, tuple) else result
+            agents: AgentGenerationOutput = response.content
             generated_agents = [agent.to_dict(ignore=["class_name"]) for agent in agents.generated_agents]
 
             selected_agents = []
             if existing_agents:
                 selected_agents = [agent.get_config() if isinstance(agent, Agent) else agent for agent in existing_agents if agent.name in agents.selected_agents]
 
-            subtask.set_agents(agents=selected_agents + generated_agents)
+            # cast to List[str|dict] for covariance
+            subtask.set_agents(agents=cast(List[Union[str, dict]], selected_agents + generated_agents))
         return workflow
     
-    # def review_plan(self, goal: str, )
     def build_workflow_from_plan(self, goal: str, plan: TaskPlanningOutput) -> WorkFlowGraph:
-        nodes: List[WorkFlowNode] = plan.sub_tasks
+        # guard sub_tasks may be None
+        nodes: List[WorkFlowNode] = plan.sub_tasks or []
         # infer edges from sub-tasks' inputs and outputs
         edges: List[WorkFlowEdge] = []
         for node in nodes:
@@ -202,15 +222,15 @@ class WorkFlowGenerator(BaseModule):
                     continue
                 node_output_params = [param.name for param in node.outputs]
                 another_node_input_params = [param.name for param in another_node.inputs]
-                if any([param in another_node_input_params for param in node_output_params]):
+                if any(param in another_node_input_params for param in node_output_params):
                     edges.append(WorkFlowEdge(edge_tuple=(node.name, another_node.name)))
         workflow = WorkFlowGraph(goal=goal, nodes=nodes, edges=edges)
         return workflow
     
-    def from_text_diagram(self, diagram: str, context: dict = None):
+    def from_text_diagram(self, diagram: str, context: Optional[dict] = None) -> WorkFlowGraph:
         """Create a workflow graph from a text diagram (stub for self-improve)."""
-        # This is a stub. In a real implementation, parse the diagram and create nodes/edges.
-        # For now, just return an empty WorkFlowGraph with the goal from context.
-        goal = context["improvement_goal"] if context and "improvement_goal" in context else ""
+        # stub implementation
+        context = context or {}
+        goal: str = context.get("improvement_goal", "")
         return WorkFlowGraph(goal=goal, nodes=[], edges=[])
 

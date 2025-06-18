@@ -1,7 +1,7 @@
 import json
 import inspect
 from pydantic import create_model, Field
-from typing import Union, Optional, Callable, Type, List
+from typing import Union, Optional, Callable, Type, List, Tuple, cast
 
 from .agent import Agent
 from ..core.logging import logger
@@ -57,6 +57,7 @@ def prepare_action_prompt(self, inputs: Optional[dict] = None, system_prompt: Op
     Raises:
         TypeError: If an input value type is not supported
     """
+    inputs = inputs or {}
     prompt_params_names = self.inputs_format.get_attrs()
     prompt_params_values = {}
     for param in prompt_params_names:
@@ -101,7 +102,7 @@ def prepare_extraction_prompt(self, llm_output_content: str) -> str:
     output_description = "\n\n".join(output_description_list)
     return OUTPUT_EXTRACTION_PROMPT.format(text=llm_output_content, output_description=output_description)
 
-def customize_action_execute(self, llm: Optional[BaseLLM] = None, inputs: Optional[dict] = None, sys_msg: Optional[str]=None, return_prompt: bool = False, **kwargs) -> ActionOutput:
+def customize_action_execute(self, llm: Optional[BaseLLM] = None, inputs: Optional[dict] = None, sys_msg: Optional[str]=None, return_prompt: bool = False, **kwargs) -> Union[ActionOutput, Tuple[ActionOutput, str]]:
     """Execute a customized action using the language model.
     
     Args:
@@ -119,29 +120,34 @@ def customize_action_execute(self, llm: Optional[BaseLLM] = None, inputs: Option
     Raises:
         TypeError: If an input value type is not supported
     """
+    # ensure llm is BaseLLM for type checker
+    llm = cast(BaseLLM, llm or self.llm)
     prompt = self.prepare_action_prompt(inputs, system_prompt=sys_msg)
     
-    # Generate output
+    # generate output
     if isinstance(prompt, str):
-        llm_output: LLMOutputParser = llm.generate(prompt=prompt, system_message=sys_msg)
+        llm_output = llm.generate(prompt=prompt, system_message=sys_msg)
     else:
-        llm_output: LLMOutputParser = llm.generate(messages=prompt)
+        llm_output = llm.generate(messages=prompt)
+    if isinstance(llm_output, list):
+        llm_output = llm_output[0]
     
     try:
         output = self.outputs_format.parse(llm_output.content, parse_mode=self.parse_mode, parse_func=self.parse_func, title_format=self.title_format)
     except Exception:
         logger.warning(f"Couldn't automatically extract output data for '{self.name}'. Use LLM to extract output data ...")
         extraction_prompt = self.prepare_extraction_prompt(llm_output.content)
-        llm_extracted_output: LLMOutputParser = llm.generate(prompt=extraction_prompt)
-        llm_extracted_data: dict = parse_json_from_llm_output(llm_extracted_output.content)
+        llm_extracted_output = llm.generate(prompt=extraction_prompt)
+        if isinstance(llm_extracted_output, list):
+            llm_extracted_output = llm_extracted_output[0]
+        llm_extracted_data = parse_json_from_llm_output(llm_extracted_output.content)
         output = self.outputs_format.from_dict(llm_extracted_data)
 
     if return_prompt:
         return output, prompt
-    
     return output
 
-async def customize_action_async_execute(self, llm: Optional[BaseLLM] = None, inputs: Optional[dict] = None, sys_msg: Optional[str]=None, return_prompt: bool = False, **kwargs) -> ActionOutput:
+async def customize_action_async_execute(self, llm: Optional[BaseLLM] = None, inputs: Optional[dict] = None, sys_msg: Optional[str]=None, return_prompt: bool = False, **kwargs) -> Union[ActionOutput, Tuple[ActionOutput, str]]:
     """Asynchronously execute a customized action using the language model.
     
     This is the async version of customize_action_execute method, using async_generate instead of generate.
@@ -161,30 +167,32 @@ async def customize_action_async_execute(self, llm: Optional[BaseLLM] = None, in
     Raises:
         TypeError: If an input value type is not supported
     """
+    # ensure llm is BaseLLM for type checker
+    llm = cast(BaseLLM, llm or self.llm)
     prompt = self.prepare_action_prompt(inputs, system_prompt=sys_msg)
     
-    # Generate output using async method
+    # generate async output
     if isinstance(prompt, str):
-        llm_output: LLMOutputParser = await llm.async_generate(prompt=prompt, system_message=sys_msg)
+        llm_output = await llm.async_generate(prompt=prompt, system_message=sys_msg)
     else:
-        llm_output: LLMOutputParser = await llm.async_generate(messages=prompt)
+        llm_output = await llm.async_generate(messages=prompt)
+    if isinstance(llm_output, list):
+        llm_output = llm_output[0]
     
     try:
-        # Parse the output using the specified parsing mode
         output = self.outputs_format.parse(llm_output.content, parse_mode=self.parse_mode, parse_func=self.parse_func, title_format=self.title_format)
     except Exception:
-        # Fallback to extracting output via LLM if parsing fails
         logger.warning(f"Couldn't automatically extract output data for '{self.name}'. Use LLM to extract output data ...")
         extraction_prompt = self.prepare_extraction_prompt(llm_output.content)
         
-        # Use async_generate for the extraction too
-        llm_extracted_output: LLMOutputParser = await llm.async_generate(prompt=extraction_prompt)
-        llm_extracted_data: dict = parse_json_from_llm_output(llm_extracted_output.content)
+        llm_extracted_output = await llm.async_generate(prompt=extraction_prompt)
+        if isinstance(llm_extracted_output, list):
+            llm_extracted_output = llm_extracted_output[0]
+        llm_extracted_data = parse_json_from_llm_output(llm_extracted_output.content)
         output = self.outputs_format.from_dict(llm_extracted_data)
 
     if return_prompt:
         return output, prompt
-    
     return output
 
 class CustomizeAgent(Agent):
@@ -265,15 +273,15 @@ class CustomizeAgent(Agent):
             title_format = "## {title}"
 
         # validate the data 
-        self.validate_data(
-            prompt = prompt, 
-            prompt_template = prompt_template, 
-            inputs = inputs, 
-            outputs = outputs, 
-            output_parser = output_parser, 
-            parse_mode = parse_mode, 
-            parse_func = parse_func, 
-            title_format = title_format
+        self._validate_data(
+            prompt=prompt,
+            prompt_template=prompt_template,
+            inputs=inputs,
+            outputs=outputs,
+            output_parser=output_parser,
+            parse_mode=parse_mode,
+            parse_func=parse_func,
+            title_format=title_format
         )
 
         customize_action = self.create_customize_action(
@@ -328,7 +336,7 @@ class CustomizeAgent(Agent):
         return self.get_action(self.customize_action_name) 
     
     @property
-    def prompt(self) -> str:
+    def prompt(self) -> Optional[str]:
         """
         Get the prompt for the primary custom action.
         
@@ -337,22 +345,39 @@ class CustomizeAgent(Agent):
         """
         return self.action.prompt
     
-    def validate_data(self, prompt: str, prompt_template: PromptTemplate, inputs: List[dict], outputs: List[dict], output_parser: Type[ActionOutput], parse_mode: str, parse_func: Callable, title_format: str):
-
+    def _validate_data(self, prompt: Optional[str], prompt_template: Optional[PromptTemplate], inputs: List[dict], outputs: List[dict], output_parser: Optional[Type[ActionOutput]], parse_mode: Optional[str], parse_func: Optional[Callable], title_format: Optional[str]):
+        """Validate the agent data including prompt, inputs, outputs, and parsing settings.
+        
+        Args:
+            prompt (str): The prompt template for the agent.
+            prompt_template (PromptTemplate): The prompt template object for the agent.
+            inputs (List[dict]): The list of input specifications.
+            outputs (List[dict]): The list of output specifications.
+            output_parser (Type[ActionOutput]): The output parser class.
+            parse_mode (str): The mode for parsing the LLM output.
+            parse_func (Callable): The custom parsing function.
+            title_format (str): The format for the title in title parsing mode.
+        
+        Raises:
+            ValueError: If any of the validation checks fail.
+            KeyError: If required input parameters are not found in the prompt.
+        """
         # check if the prompt is provided
-        if prompt is None and prompt_template is None:
+        if not prompt and not prompt_template:
             raise ValueError("`prompt` or `prompt_template` is required when creating a CustomizeAgent.")
         
         # check if all the inputs are in the prompt (only used when prompt_template is not provided)
-        if prompt_template is None and inputs:
+        # if using raw prompt, ensure placeholders exist
+        if prompt_template is None and inputs and prompt:
             all_input_names = [input_item["name"] for input_item in inputs]
-            inputs_names_not_in_prompt = [name for name in all_input_names if f'{{{name}}}' not in prompt]
-            if inputs_names_not_in_prompt:
-                raise KeyError(f"The following inputs are not found in the prompt: {inputs_names_not_in_prompt}.") 
+            missing = [name for name in all_input_names if f'{{{name}}}' not in prompt]
+            if missing:
+                raise KeyError(f"The following inputs are not found in the prompt: {missing}.")
         
         # check if the output_parser is valid 
         if output_parser is not None:
-            self._check_output_parser(outputs, output_parser)
+            # validate outputs list, ensure list passed
+            self._check_output_parser(outputs or [], output_parser)
         
         # check the parse_mode, parse_func, and title_format
         if parse_mode not in PARSER_VALID_MODE:
@@ -385,16 +410,16 @@ class CustomizeAgent(Agent):
                 raise ValueError(r"`title_format` must contain the placeholder `{title}`.")
     
     def create_customize_action(
-        self, 
-        name: str, 
-        desc: str, 
-        prompt: str, 
-        prompt_template: PromptTemplate, 
-        inputs: List[dict], 
-        outputs: List[dict], 
-        parse_mode: str, 
+        self,
+        name: str,
+        desc: str,
+        inputs: List[dict],
+        outputs: List[dict],
+        parse_mode: Optional[str],
+        prompt: Optional[str] = None,
+        prompt_template: Optional[PromptTemplate] = None,
         parse_func: Optional[Callable] = None,
-        output_parser: Optional[ActionOutput] = None,
+        output_parser: Optional[Type[ActionOutput]] = None,
         title_format: Optional[str] = "## {title}",
         custom_output_format: Optional[str] = None
     ) -> Action:
@@ -419,8 +444,6 @@ class CustomizeAgent(Agent):
         Returns:
             A newly created Action instance
         """
-        assert prompt is not None or prompt_template is not None, "must provide `prompt` or `prompt_template` when creating CustomizeAgent"
-
         # create the action input type
         action_input_fields = {}
         for field in inputs:
@@ -523,7 +546,7 @@ class CustomizeAgent(Agent):
             self._action_output_types[field["name"]] = field["type"]
             self._action_output_required[field["name"]] = required
     
-    def __call__(self, inputs: dict = None, return_msg_type: MessageType = MessageType.UNKNOWN, **kwargs) -> Message:
+    def __call__(self, inputs: Optional[dict] = None, return_msg_type: MessageType = MessageType.UNKNOWN, **kwargs) -> Message:
         """
         Call the customize action.
 
@@ -543,15 +566,18 @@ class CustomizeAgent(Agent):
         Get the information of the customize agent.
         """
         customize_action = self.get_action(self.customize_action_name)
-        action_input_params = customize_action.inputs_format.get_attrs()
-        action_output_params = customize_action.outputs_format.get_attrs()
+        inputs_fmt = customize_action.inputs_format
+        outputs_fmt = customize_action.outputs_format
+        # Get attribute names safely
+        action_input_params = getattr(inputs_fmt, 'get_attrs', lambda: [])() if inputs_fmt else []
+        action_output_params = getattr(outputs_fmt, 'get_attrs', lambda: [])() if outputs_fmt else []
         
         config = {
             "class_name": "CustomizeAgent",
             "name": self.name,
             "description": self.description,
             "prompt": customize_action.prompt,
-            "prompt_template": customize_action.prompt_template.to_dict() if customize_action.prompt_template is not None else None, 
+            "prompt_template": getattr(customize_action.prompt_template, 'to_dict', lambda **kwargs: None)(exclude_none=True) if getattr(customize_action, 'prompt_template', None) else None, 
             # "llm_config": self.llm_config.to_dict(exclude_none=True),
             "inputs": [
                 {
@@ -560,7 +586,7 @@ class CustomizeAgent(Agent):
                     "description": field_info.description,
                     "required": self._action_input_required[field]
                 }
-                for field, field_info in customize_action.inputs_format.model_fields.items() if field in action_input_params
+                for field, field_info in getattr(getattr(customize_action, 'inputs_format', None), 'model_fields', {}).items() if field in action_input_params
             ],
             "outputs": [
                 {
@@ -569,7 +595,7 @@ class CustomizeAgent(Agent):
                     "description": field_info.description,
                     "required": self._action_output_required[field]
                 }
-                for field, field_info in customize_action.outputs_format.model_fields.items() if field in action_output_params
+                for field, field_info in getattr(getattr(customize_action, 'outputs_format', None), 'model_fields', {}).items() if field in action_output_params
             ],
             "system_prompt": self.system_prompt,
             "output_parser": self.output_parser.__name__ if self.output_parser is not None else None,
@@ -627,10 +653,11 @@ class CustomizeAgent(Agent):
             with the same properties as this one.
         """
         config = self.get_customize_agent_info()
-        config["llm_config"] = self.llm_config.to_dict()
+        if getattr(self, 'llm_config', None):
+            config["llm_config"] = getattr(self.llm_config, 'to_dict', lambda **kwargs: {})(exclude_none=True)
         return config
     
-    @staticmethod
-    def from_dict(data: dict) -> "CustomizeAgent":
+    @classmethod
+    def from_dict(cls, data: dict, **kwargs) -> "CustomizeAgent":
         """Create a CustomizeAgent from a dictionary."""
-        return CustomizeAgent(**data)
+        return cls(**data)

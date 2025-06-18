@@ -393,7 +393,7 @@ class Agent(BaseModule):
             Dictionary of extracted input data, or None if extraction fails
         """
         # return the input data of an action.
-        context = self.short_term_memory.get(n=self.n)
+        context = self.get_context()
         cext_action = self.get_action(self.cext_action_name)
         action_inputs = cext_action.execute(llm=self.llm, action=action, context=context)
         if action_inputs is None or not isinstance(action_inputs, dict):
@@ -409,7 +409,7 @@ class Agent(BaseModule):
         actions = [action for action in self.actions if action.name != self.cext_action_name]
         return actions
     
-    def get_agent_profile(self, action_names: List[str] = None) -> str:
+    def get_agent_profile(self, action_names: Optional[List[str]] = None) -> str:
         """Generate a human-readable profile of the agent and its capabilities.
         
         Args:
@@ -524,7 +524,7 @@ class Agent(BaseModule):
         return ""
 
     @classmethod
-    def load_module(cls, path: str, llm_config: LLMConfig = None, **kwargs) -> dict:
+    def load_module(cls, path: str, llm_config: Optional[LLMConfig] = None, **kwargs) -> dict:
         """
         load the agent from local storage. Must provide `llm_config` when loading the agent from local storage. 
 
