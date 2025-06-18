@@ -66,7 +66,7 @@ class ExecutionStatus(str, Enum):
 
 # Database Models
 class Agent(MongoBaseModel):
-    id: str = Field(..., alias="_id")
+    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
     name: str
     description: Optional[str] = None
     config: Dict[str, Any]
@@ -79,7 +79,7 @@ class Agent(MongoBaseModel):
     tags: List[str] = Field(default_factory=list)
 
 class Workflow(MongoBaseModel):
-    id: str = Field(..., alias="_id")
+    id: Optional[PyObjectId] = Field(default_factory=PyObjectId, alias="_id")
     name: str
     description: Optional[str] = None
     definition: Dict[str, Any]
@@ -116,7 +116,7 @@ class WorkflowExecution(MongoBaseModel):
 
 # Database client
 class Database:
-    client: AsyncIOMotorClient = None
+    client: Optional[AsyncIOMotorClient] = None
     db = None
     
     # Collections
@@ -154,24 +154,25 @@ class Database:
     async def _create_indexes(cls):
         """Create indexes for collections"""
         # Agent indexes
-        await cls.agents.create_index([("name", ASCENDING)], unique=True)
-        await cls.agents.create_index([("name", TEXT), ("description", TEXT)])
-        await cls.agents.create_index([("created_at", ASCENDING)])
-        await cls.agents.create_index([("tags", ASCENDING)])
-        
+        if cls.agents:
+            await cls.agents.create_index([("name", ASCENDING)], unique=True)
+            await cls.agents.create_index([("name", TEXT), ("description", TEXT)])
+            await cls.agents.create_index([("created_at", ASCENDING)])
+            await cls.agents.create_index([("tags", ASCENDING)])
         # Workflow indexes
-        await cls.workflows.create_index([("name", ASCENDING)])
-        await cls.workflows.create_index([("name", TEXT), ("description", TEXT)])
-        await cls.workflows.create_index([("created_at", ASCENDING)])
-        await cls.workflows.create_index([("agent_ids", ASCENDING)])
-        await cls.workflows.create_index([("tags", ASCENDING)])
-        
+        if cls.workflows:
+            await cls.workflows.create_index([("name", ASCENDING)])
+            await cls.workflows.create_index([("name", TEXT), ("description", TEXT)])
+            await cls.workflows.create_index([("created_at", ASCENDING)])
+            await cls.workflows.create_index([("agent_ids", ASCENDING)])
+            await cls.workflows.create_index([("tags", ASCENDING)])
         # Execution indexes
-        await cls.executions.create_index([("workflow_id", ASCENDING)])
-        await cls.executions.create_index([("created_at", ASCENDING)])
-        await cls.executions.create_index([("status", ASCENDING)])
-        
+        if cls.executions:
+            await cls.executions.create_index([("workflow_id", ASCENDING)])
+            await cls.executions.create_index([("created_at", ASCENDING)])
+            await cls.executions.create_index([("status", ASCENDING)])
         # Log indexes
-        await cls.logs.create_index([("execution_id", ASCENDING)])
-        await cls.logs.create_index([("timestamp", ASCENDING)])
-        await cls.logs.create_index([("workflow_id", ASCENDING), ("execution_id", ASCENDING)])
+        if cls.logs:
+            await cls.logs.create_index([("execution_id", ASCENDING)])
+            await cls.logs.create_index([("timestamp", ASCENDING)])
+            await cls.logs.create_index([("workflow_id", ASCENDING), ("execution_id", ASCENDING)])

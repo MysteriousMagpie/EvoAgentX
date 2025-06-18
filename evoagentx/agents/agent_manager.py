@@ -2,7 +2,7 @@ import threading
 from enum import Enum
 from copy import deepcopy
 from pydantic import Field
-from typing import Union, Optional, Dict, List
+from typing import Union, Optional, Dict, List, Any
 
 from .agent import Agent
 # from .agent_generator import AgentGenerator
@@ -30,6 +30,7 @@ class AgentManager(BaseModule):
     agent_states: Dict[str, AgentState] = Field(default_factory=dict) # agent_name to AgentState mapping
     storage_handler: Optional[StorageHandler] = None # used to load and save agent from storage.
     # agent_generator: Optional[AgentGenerator] = None # used to generate agents for a specific subtask
+    toolbox: Dict[str, Any] = Field(default_factory=dict)
 
     def init_module(self):
         self._lock = threading.Lock()
@@ -154,7 +155,7 @@ class AgentManager(BaseModule):
             else:
                 raise ValueError(f"llm_config must be a dictionary or an instance of LLMConfig. Got {type(agent_llm_config)}.") 
         
-        return CustomizeAgent.from_dict(data=agent_data)
+        return CustomizeAgent.from_dict(data=agent_data)  # type: ignore
     
     def get_agent_name(self, agent: Union[str, dict, Agent]) -> str:
         """Extract agent name from different agent representations.
@@ -242,7 +243,8 @@ class AgentManager(BaseModule):
         from ..workflow.workflow_graph import WorkFlowGraph
         if not isinstance(workflow_graph, WorkFlowGraph):
             raise TypeError("workflow_graph must be an instance of WorkFlowGraph")
-        for node in workflow_graph.nodes:
+        # Fix: handle None for workflow_graph.nodes
+        for node in workflow_graph.nodes or []:
             if node.agents:
                 for agent in node.agents:
                     self.add_agent(agent=agent, llm_config=llm_config, **kwargs)
@@ -259,14 +261,16 @@ class AgentManager(BaseModule):
         from ..workflow.workflow_graph import WorkFlowGraph
         if not isinstance(workflow_graph, WorkFlowGraph):
             raise TypeError("workflow_graph must be an instance of WorkFlowGraph")
-        for node in workflow_graph.nodes:
+        # Fix: handle None for workflow_graph.nodes
+        for node in workflow_graph.nodes or []:
             if node.agents:
                 for agent in node.agents:
                     agent_name = self.get_agent_name(agent=agent)
                     if self.has_agent(agent_name=agent_name):
                         # use the llm_config of the existing agent
                         agent_llm_config = self.get_agent(agent_name).llm_config
-                        self.update_agent(agent=agent, llm_config=agent_llm_config, **kwargs)
+                        if not isinstance(agent, str):
+                            self.update_agent(agent=agent, llm_config=agent_llm_config, **kwargs)
                     else:
                         self.add_agent(agent=agent, llm_config=llm_config, **kwargs)
 
@@ -314,7 +318,7 @@ class AgentManager(BaseModule):
         self.agents = [agent for agent in self.agents if agent.name != agent_name]
         self.agent_states.pop(agent_name, None)
         self._state_conditions.pop(agent_name, None) 
-        if remove_from_storage:
+        if remove_from_storage and self.storage_handler is not None:
             self.storage_handler.remove_agent(agent_name=agent_name, **kwargs)
         self.check_agents()
 
@@ -408,4 +412,9 @@ class AgentManager(BaseModule):
                 lambda: self.agent_states.get(agent_name) == AgentState.AVAILABLE,
                 timeout=timeout
             )
+
+    @classmethod
+    def add_tool(cls, name: str, func: Any):
+        """Register a tool for agent use."""
+        cls.toolbox[name] = func
 

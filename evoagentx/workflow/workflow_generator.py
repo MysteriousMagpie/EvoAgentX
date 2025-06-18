@@ -207,3 +207,10 @@ class WorkFlowGenerator(BaseModule):
         workflow = WorkFlowGraph(goal=goal, nodes=nodes, edges=edges)
         return workflow
     
+    def from_text_diagram(self, diagram: str, context: dict = None):
+        """Create a workflow graph from a text diagram (stub for self-improve)."""
+        # This is a stub. In a real implementation, parse the diagram and create nodes/edges.
+        # For now, just return an empty WorkFlowGraph with the goal from context.
+        goal = context["improvement_goal"] if context and "improvement_goal" in context else ""
+        return WorkFlowGraph(goal=goal, nodes=[], edges=[])
+

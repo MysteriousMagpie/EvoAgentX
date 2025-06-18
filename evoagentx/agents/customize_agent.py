@@ -628,5 +628,9 @@ class CustomizeAgent(Agent):
         """
         config = self.get_customize_agent_info()
         config["llm_config"] = self.llm_config.to_dict()
-        return config 
+        return config
     
+    @staticmethod
+    def from_dict(data: dict) -> "CustomizeAgent":
+        """Create a CustomizeAgent from a dictionary."""
+        return CustomizeAgent(**data)

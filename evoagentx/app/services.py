@@ -3,7 +3,7 @@ Business logic for agents, workflows, and executions.
 """
 import logging
 # import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Any, Optional, Tuple
 from bson import ObjectId
 
@@ -30,6 +30,8 @@ class AgentService:
         agent_dict["status"] = AgentStatus.CREATED
         
         # Validate agent exists with the same name
+        if not Database.agents:
+            raise RuntimeError("Database.agents is not initialized. Did you forget to call Database.connect()?")
         existing_agent = await Database.agents.find_one({"name": agent_dict["name"]})
         if existing_agent:
             raise ValueError(f"Agent with name '{agent_dict['name']}' already exists")
@@ -47,13 +49,13 @@ class AgentService:
         if not ObjectId.is_valid(agent_id):
             raise ValueError(f"Invalid agent ID: {agent_id}")
             
-        agent = await Database.agents.find_one({"_id": ObjectId(agent_id)})
+        agent = await Database.agents.find_one({"_id": ObjectId(agent_id)}) if Database.agents else None
         return agent
     
     @staticmethod
     async def get_agent_by_name(name: str) -> Optional[Dict[str, Any]]:
         """Get an agent by name."""
-        return await Database.agents.find_one({"name": name})
+        return await Database.agents.find_one({"name": name}) if Database.agents else None
     
     @staticmethod
     async def update_agent(agent_id: str, agent_data: AgentUpdate) -> Optional[Dict[str, Any]]:
@@ -61,30 +63,26 @@ class AgentService:
         if not ObjectId.is_valid(agent_id):
             raise ValueError(f"Invalid agent ID: {agent_id}")
             
-        agent = await Database.agents.find_one({"_id": ObjectId(agent_id)})
+        agent = await Database.agents.find_one({"_id": ObjectId(agent_id)}) if Database.agents else None
         if not agent:
             return None
-        
         update_data = agent_data.dict(exclude_unset=True)
         update_data["updated_at"] = datetime.utcnow()
-        
         if "name" in update_data:
             # Check if the new name already exists
             existing = await Database.agents.find_one({
                 "name": update_data["name"],
                 "_id": {"$ne": ObjectId(agent_id)}
-            })
+            }) if Database.agents else None
             if existing:
                 raise ValueError(f"Agent with name '{update_data['name']}' already exists")
-        
-        await Database.agents.update_one(
-            {"_id": ObjectId(agent_id)},
-            {"$set": update_data}
-        )
-        
-        updated_agent = await Database.agents.find_one({"_id": ObjectId(agent_id)})
+        if Database.agents:
+            await Database.agents.update_one(
+                {"_id": ObjectId(agent_id)},
+                {"$set": update_data}
+            )
+        updated_agent = await Database.agents.find_one({"_id": ObjectId(agent_id)}) if Database.agents else None
         logger.info(f"Updated agent {agent_id}")
-        
         return updated_agent
     
     @staticmethod
@@ -94,12 +92,12 @@ class AgentService:
             raise ValueError(f"Invalid agent ID: {agent_id}")
             
         # Check if agent is used in any workflows
-        workflow_count = await Database.workflows.count_documents({"agent_ids": agent_id})
+        workflow_count = await Database.workflows.count_documents({"agent_ids": agent_id}) if Database.workflows else 0
         if workflow_count > 0:
             raise ValueError(f"Cannot delete agent {agent_id} as it is used in {workflow_count} workflows")
         
-        result = await Database.agents.delete_one({"_id": ObjectId(agent_id)})
-        if result.deleted_count:
+        result = await Database.agents.delete_one({"_id": ObjectId(agent_id)}) if Database.agents else None
+        if result and result.deleted_count:
             logger.info(f"Deleted agent {agent_id}")
             return True
         return False
@@ -132,14 +130,11 @@ class AgentService:
             elif search.end_date:
                 query["created_at"] = {"$lte": search.end_date}
         
-        total = await Database.agents.count_documents(query)
+        total = await Database.agents.count_documents(query) if Database.agents else 0
+        cursor = Database.agents.find(query) if Database.agents else None
+        cursor = cursor.skip(params.skip).limit(params.limit) if cursor else None
         
-        cursor = Database.agents.find(query)\
-            .sort("created_at", -1)\
-            .skip(params.skip)\
-            .limit(params.limit)
-        
-        agents = await cursor.to_list(length=params.limit)
+        agents = await cursor.to_list(length=params.limit) if cursor else []
         return agents, total
 
 # Workflow Service
@@ -171,14 +166,14 @@ class WorkflowService:
         workflow_dict["agent_ids"] = list(agent_ids)
         
         # Check for existing workflow with the same name
-        existing = await Database.workflows.find_one({"name": workflow_dict["name"]})
+        existing = await Database.workflows.find_one({"name": workflow_dict["name"]}) if Database.workflows else None
         if existing:
             raise ValueError(f"Workflow with name '{workflow_dict['name']}' already exists")
         
-        result = await Database.workflows.insert_one(workflow_dict)
-        workflow_dict["_id"] = result.inserted_id
+        result = await Database.workflows.insert_one(workflow_dict) if Database.workflows else None
+        workflow_dict["_id"] = result.inserted_id if result else None
         
-        logger.info(f"Created workflow {workflow_dict['name']} with ID {result.inserted_id}")
+        logger.info(f"Created workflow {workflow_dict['name']} with ID {result.inserted_id}" if result else "Failed to create workflow")
         
         return workflow_dict
     
@@ -187,13 +182,13 @@ class WorkflowService:
         """Get a workflow by ID."""
         if not ObjectId.is_valid(workflow_id):
             raise ValueError(f"Invalid workflow ID: {workflow_id}")
-        workflow = await Database.workflows.find_one({"_id": ObjectId(workflow_id)})
+        workflow = await Database.workflows.find_one({"_id": ObjectId(workflow_id)}) if Database.workflows else None
         return workflow
     
     @staticmethod
     async def get_workflow_by_name(name: str) -> Optional[Dict[str, Any]]:
         """Get a workflow by name."""
-        return await Database.workflows.find_one({"name": name})
+        return await Database.workflows.find_one({"name": name}) if Database.workflows else None
     
     @staticmethod
     async def update_workflow(workflow_id: str, workflow_data: WorkflowUpdate) -> Optional[Dict[str, Any]]:
@@ -201,7 +196,7 @@ class WorkflowService:
         if not ObjectId.is_valid(workflow_id):
             raise ValueError(f"Invalid workflow ID: {workflow_id}")
             
-        workflow = await Database.workflows.find_one({"_id": ObjectId(workflow_id)})
+        workflow = await Database.workflows.find_one({"_id": ObjectId(workflow_id)}) if Database.workflows else None
         if not workflow:
             return None
         
@@ -229,18 +224,20 @@ class WorkflowService:
         # Check for name conflict if name is being updated
         if "name" in update_data:
             existing = await Database.workflows.find_one({
-                "name": update_data["name"],
-                "_id": {"$ne": ObjectId(workflow_id)}
-            })
+                "$and": [
+                    {"name": update_data["name"]},
+                    {"_id": {"$ne": ObjectId(workflow_id)}}
+                ]
+            }) if Database.workflows else None
             if existing:
                 raise ValueError(f"Workflow with name '{update_data['name']}' already exists")
         
         await Database.workflows.update_one(
             {"_id": ObjectId(workflow_id)},
             {"$set": update_data}
-        )
+        ) if Database.workflows else None
         
-        updated_workflow = await Database.workflows.find_one({"_id": ObjectId(workflow_id)})
+        updated_workflow = await Database.workflows.find_one({"_id": ObjectId(workflow_id)}) if Database.workflows else None
         logger.info(f"Updated workflow {workflow_id}")
         
         return updated_workflow
@@ -252,22 +249,21 @@ class WorkflowService:
             raise ValueError(f"Invalid workflow ID: {workflow_id}")
         
         # Check if workflow has any ongoing or recent executions
+        # 'since' should be defined or replaced with a default value, e.g., datetime.utcnow() - timedelta(days=1)
+        since = datetime.utcnow() - timedelta(days=1)
         recent_executions = await Database.executions.count_documents({
             "workflow_id": workflow_id,
-            "status": {"$in": [
-                ExecutionStatus.PENDING, 
-                ExecutionStatus.RUNNING
-            ]}
-        })
+            "created_at": {"$gte": since}
+        }) if Database.executions else 0
         
         if recent_executions > 0:
             raise ValueError(f"Cannot delete workflow {workflow_id} with {recent_executions} active executions")
 
-        result = await Database.workflows.delete_one({"_id": ObjectId(workflow_id)})
-        if result.deleted_count:
+        result = await Database.workflows.delete_one({"_id": ObjectId(workflow_id)}) if Database.workflows else None
+        if result and result.deleted_count:
             # Delete associated execution logs
-            await Database.logs.delete_many({"workflow_id": workflow_id})
-            await Database.executions.delete_many({"workflow_id": workflow_id})
+            await Database.logs.delete_many({"workflow_id": workflow_id}) if Database.logs else None
+            await Database.executions.delete_many({"workflow_id": workflow_id}) if Database.executions else None
             
             logger.info(f"Deleted workflow {workflow_id}")
             return True
@@ -301,14 +297,12 @@ class WorkflowService:
             elif search.end_date:
                 query["created_at"] = {"$lte": search.end_date}
         
-        total = await Database.workflows.count_documents(query)
+        total = await Database.workflows.count_documents(query) if Database.workflows else 0
         
-        cursor = Database.workflows.find(query)\
-            .sort("created_at", -1)\
-            .skip(params.skip)\
-            .limit(params.limit)
+        cursor = Database.workflows.find(query) if Database.workflows else None
+        cursor = cursor.sort("created_at", -1).skip(params.skip).limit(params.limit) if cursor else None
         
-        workflows = await cursor.to_list(length=params.limit)
+        workflows = await cursor.to_list(length=params.limit) if cursor else []
         return workflows, total
 
 # Workflow Execution Service
@@ -336,10 +330,13 @@ class WorkflowExecutionService:
         }
         
         # Insert execution record
-        result = await Database.executions.insert_one(execution_dict)
-        execution_dict["_id"] = result.inserted_id
-        
-        logger.info(f"Created workflow execution {result.inserted_id}")
+        if Database.executions:
+            result = await Database.executions.insert_one(execution_dict)
+            execution_dict["_id"] = result.inserted_id
+            logger.info(f"Created workflow execution {result.inserted_id}")
+        else:
+            logger.error("Database.executions is not initialized.")
+            return {}
         
         # Optional: Queue execution for async processing
         # This would typically use a task queue like Celery
@@ -353,7 +350,7 @@ class WorkflowExecutionService:
         if not ObjectId.is_valid(execution_id):
             raise ValueError(f"Invalid execution ID: {execution_id}")
             
-        execution = await Database.executions.find_one({"_id": ObjectId(execution_id)})
+        execution = await Database.executions.find_one({"_id": ObjectId(execution_id)}) if Database.executions else None
         return execution
     
     @staticmethod
@@ -361,25 +358,21 @@ class WorkflowExecutionService:
         """Update execution status."""
         if not ObjectId.is_valid(execution_id):
             raise ValueError(f"Invalid execution ID: {execution_id}")
-        
         update_data = {
             "status": status,
-            "updated_at": datetime.utcnow()
         }
-        
-        if status in [ExecutionStatus.COMPLETED, ExecutionStatus.FAILED, ExecutionStatus.CANCELLED]:
-            update_data["end_time"] = datetime.utcnow()
-        
         if error_message:
-            update_data["error_message"] = error_message
-        
-        result = await Database.executions.find_one_and_update(
-            {"_id": ObjectId(execution_id)},
-            {"$set": update_data},
-            return_document=True
-        )
-        
-        return result
+            update_data["error_message"] = error_message  # type: ignore
+        if Database.executions:
+            result = await Database.executions.find_one_and_update(
+                {"_id": ObjectId(execution_id)},
+                {"$set": update_data},
+                return_document=True
+            )
+            return result if result else {}
+        else:
+            logger.error("Database.executions is not initialized.")
+            return {}
     
     @staticmethod
     async def list_executions(
@@ -407,14 +400,12 @@ class WorkflowExecutionService:
             elif search.end_date:
                 query["created_at"] = {"$lte": search.end_date}
         
-        total = await Database.executions.count_documents(query)
+        total = await Database.executions.count_documents(query) if Database.executions else 0
         
-        cursor = Database.executions.find(query)\
-            .sort("created_at", -1)\
-            .skip(params.skip)\
-            .limit(params.limit)
+        cursor = Database.executions.find(query) if Database.executions else None
+        cursor = cursor.sort("created_at", -1).skip(params.skip).limit(params.limit) if cursor else None
         
-        executions = await cursor.to_list(length=params.limit)
+        executions = await cursor.to_list(length=params.limit) if cursor else []
         return executions, total
     
     @staticmethod
@@ -439,10 +430,13 @@ class WorkflowExecutionService:
             "details": details or {}
         }
         
-        result = await Database.logs.insert_one(log_entry)
-        log_entry["_id"] = result.inserted_id
-        
-        return log_entry
+        if Database.logs:
+            result = await Database.logs.insert_one(log_entry)
+            log_entry["_id"] = result.inserted_id
+            return log_entry
+        else:
+            logger.error("Database.logs is not initialized.")
+            return {}
     
     @staticmethod
     async def get_execution_logs(
@@ -452,12 +446,10 @@ class WorkflowExecutionService:
         """Retrieve logs for a specific execution."""
         query = {"execution_id": execution_id}
         
-        total = await Database.logs.count_documents(query)
+        total = await Database.logs.count_documents(query) if Database.logs else 0
         
-        cursor = Database.logs.find(query)\
-            .sort("timestamp", 1)\
-            .skip(params.skip)\
-            .limit(params.limit)
+        cursor = Database.logs.find(query) if Database.logs else None
+        cursor = cursor.sort("timestamp", 1).skip(params.skip).limit(params.limit) if cursor else None
         
-        logs = await cursor.to_list(length=params.limit)
+        logs = await cursor.to_list(length=params.limit) if cursor else []
         return logs, total

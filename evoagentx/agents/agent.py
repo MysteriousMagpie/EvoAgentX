@@ -47,8 +47,8 @@ class Agent(BaseModule):
     storage_handler: Optional[StorageHandler] = None
     long_term_memory: Optional[LongTermMemory] = None
     long_term_memory_manager: Optional[MemoryManager] = None
-    actions: List[Action] = Field(default=None)
-    n: int = Field(default=None, description="number of latest messages used to provide context for action execution. It uses all the messages in short term memory by default.")
+    actions: List[Action] = Field(default_factory=list)
+    n: int = 0
     is_human: bool = Field(default=False)
     version: int = 0 
 
@@ -70,15 +70,18 @@ class Agent(BaseModule):
     #     # Otherwise, use the synchronous method
     #     return self.execute(*args, **kwargs)
 
-    def __call__(self, *args: Any, **kwargs: Any) -> Union[dict, Coroutine[Any, Any, dict]]:
+    def __call__(self, *args: Any, **kwargs: Any) -> Message:
         """Make the operator callable and automatically choose between sync and async execution."""
         try:
-            # Safe way to check if we're inside an async environment
             asyncio.get_running_loop()
-            return self.async_execute(*args, **kwargs)
+            coro = self.async_execute(*args, **kwargs)
+            # If already in an event loop, user must await manually; raise error for sync context
+            raise RuntimeError("Cannot call async agent in a running event loop; please use 'await agent(...)' instead.")
         except RuntimeError:
-            # No running loop — likely in sync context or worker thread
-            return self.execute(*args, **kwargs)
+            result = self.execute(*args, **kwargs)
+            if isinstance(result, tuple):
+                return result[0]
+            return result
     
     def _prepare_execution(
         self,
@@ -109,7 +112,8 @@ class Agent(BaseModule):
         # update short-term memory
         if msgs is not None:
             # directly add messages to short-term memory
-            self.short_term_memory.add_messages(msgs)
+            if self.short_term_memory is not None:
+                self.short_term_memory.add_messages(msgs)
         if action_input_data is not None:
             # create a message from action_input_data and add it to short-term memory
             input_message = Message(
@@ -120,12 +124,12 @@ class Agent(BaseModule):
                 wf_task = kwargs.get("wf_task", None),
                 wf_task_desc = kwargs.get("wf_task_desc", None)
             )
-            self.short_term_memory.add_message(input_message)
+            if self.short_term_memory is not None:
+                self.short_term_memory.add_message(input_message)
         
         # obtain action input data from short term memory if not provided
         action_input_data = action_input_data or self.get_action_inputs(action=action)
-        
-        return action, action_input_data
+        return action, action_input_data or {}
     
     def _create_output_message(
         self,
@@ -162,7 +166,8 @@ class Agent(BaseModule):
         )
 
         # update short-term memory
-        self.short_term_memory.add_message(message)
+        if self.short_term_memory is not None:
+            self.short_term_memory.add_message(message)
         
         return message
     
@@ -216,7 +221,15 @@ class Agent(BaseModule):
                 return_prompt=True,
                 **kwargs
         )
-        action_output, prompt = execution_results
+        # Ensure execution_results is a tuple
+        if execution_results is None:
+            action_output, prompt = None, ""
+        elif isinstance(execution_results, tuple):
+            action_output, prompt = execution_results
+        else:
+            action_output, prompt = execution_results, ""
+        if not isinstance(prompt, str):
+            prompt = str(prompt)
 
         message = self._create_output_message(
             action_output=action_output,
@@ -268,7 +281,15 @@ class Agent(BaseModule):
             return_prompt=True,
             **kwargs
         )
-        action_output, prompt = execution_results
+        # Ensure execution_results is a tuple
+        if execution_results is None:
+            action_output, prompt = None, ""
+        elif isinstance(execution_results, tuple):
+            action_output, prompt = execution_results
+        else:
+            action_output, prompt = execution_results, ""
+        if not isinstance(prompt, str):
+            prompt = str(prompt)
 
         message = self._create_output_message(
             action_output=action_output,
@@ -316,18 +337,11 @@ class Agent(BaseModule):
         self.cext_action_name = cext_action.name
         self.add_action(cext_action)
 
-    def add_action(self, action: Type[Action]):
-        """
-        Add a new action to the agent's available actions.
-
-        Args:
-            action: The action instance to add
-        """
-        action_name  = action.name
-        if action_name in self._action_map:
+    def add_action(self, action: Action):
+        if not isinstance(action, Action):
             return
         self.actions.append(action)
-        self._action_map[action_name] = action
+        self._action_map[action.name] = action
 
     def check_action_name(self, action_name: str):
         """
@@ -382,6 +396,8 @@ class Agent(BaseModule):
         context = self.short_term_memory.get(n=self.n)
         cext_action = self.get_action(self.cext_action_name)
         action_inputs = cext_action.execute(llm=self.llm, action=action, context=context)
+        if action_inputs is None or not isinstance(action_inputs, dict):
+            return None
         return action_inputs
     
     def get_all_actions(self) -> List[Action]:
@@ -403,6 +419,8 @@ class Agent(BaseModule):
         Returns:
             A formatted string containing the agent profile
         """
+        if action_names is None:
+            action_names = []
         all_actions = self.get_all_actions()
         if action_names is None:
             # if `action_names` is None, return description of all actions 
@@ -417,13 +435,16 @@ class Agent(BaseModule):
         """
         Remove all content from the agent's short-term memory.
         """
-        pass 
+        if self.short_term_memory is not None:
+            self.short_term_memory.clear()
         
-    def __eq__(self, other: "Agent"):
+    def __eq__(self, other: object):
+        if not isinstance(other, Agent):
+            return False
         return self.agent_id == other.agent_id
 
-    def __hash__(self):
-        return self.agent_id
+    def __hash__(self) -> int:
+        return hash(self.agent_id) if self.agent_id is not None else 0
     
     def get_prompts(self) -> dict:
         """
@@ -500,23 +521,26 @@ class Agent(BaseModule):
         """
         ignore_fields = self._save_ignore_fields + ignore
         super().save_module(path=path, ignore=ignore_fields, **kwargs)
+        return ""
 
     @classmethod
-    def load_module(cls, path: str, llm_config: LLMConfig = None, **kwargs) -> "Agent":
+    def load_module(cls, path: str, llm_config: LLMConfig = None, **kwargs) -> dict:
         """
         load the agent from local storage. Must provide `llm_config` when loading the agent from local storage. 
 
         Args:
             path: The path of the file
             llm_config: The LLMConfig instance
-        
         Returns:
-            Agent: The loaded agent instance
+            dict: The loaded agent config
         """
-        assert llm_config is not None, "must provide `llm_config` when using `load_module` or `from_file` to load the agent from local storage"
+        if llm_config is None:
+            raise ValueError("must provide `llm_config` when using `load_module` or `from_file` to load the agent from local storage")
         agent = super().load_module(path=path, **kwargs)
-        agent["llm_config"] = llm_config.to_dict()
-        return agent 
+        if isinstance(agent, dict):
+            agent["llm_config"] = llm_config.to_dict()
+            return agent
+        return {}
     
     def get_config(self) -> dict:
         """
@@ -528,3 +552,8 @@ class Agent(BaseModule):
         """
         config = self.to_dict()
         return config
+
+    def get_context(self):
+        if self.short_term_memory is not None:
+            return self.short_term_memory.get(n=self.n)
+        return None

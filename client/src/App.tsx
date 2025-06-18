@@ -1,10 +1,20 @@
-import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom';
-import { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Navbar from '../components/Navbar';
 import Dashboard from './pages/Dashboard';
 import Planner from './pages/Planner';
 import { getSocket } from './socket';
 
 export default function App() {
+  const [darkMode, setDarkMode] = useState(false);
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
   useEffect(() => {
     const socket = getSocket();
     socket.on('connect', () => {
@@ -25,24 +35,22 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="flex h-screen">
-        {/* sidebar */}
-        <nav className="w-52 border-r p-4 space-y-2">
-          <NavLink to="/" className="block">Agent Hub</NavLink>
-          <NavLink to="/planner" className="block">Planner</NavLink>
-        </nav>
-
-        {/* main */}
-        <div className="flex-1 p-8 overflow-y-auto">
+      <Navbar darkMode={darkMode} setDarkMode={setDarkMode} />
+      <div className="grid grid-cols-3 gap-6 p-8 pt-12 bg-gray-50 dark:bg-gray-950 min-h-screen">
+        {/* Left: Workflow Graph */}
+        <section className="col-span-2 bg-white dark:bg-gray-900 rounded-lg shadow p-4 min-h-[600px]">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/planner" element={<Planner />} />
-            {/* <Route path="/history" element={<History />} /> */}
+            {/* <Route path="/runs" element={<History />} /> */}
           </Routes>
-        </div>
+        </section>
+        {/* Right: Control Panel */}
+        <aside className="flex flex-col space-y-6">
+          {/* The right pane content will be handled in Dashboard */}
+        </aside>
       </div>
     </BrowserRouter>
-
   );
 }
 
