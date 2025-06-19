@@ -1,3 +1,3 @@
-import Planner from '../../components/Planner';
+import Planner from '../components/Planner';
 
 export default Planner;
