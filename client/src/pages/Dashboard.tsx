@@ -21,12 +21,19 @@ export default function Dashboard() {
     setActiveTask,
     reset,
     runs,
-    fetchRuns
+    fetchRuns,
+    saveRun,
+    loadRuns,
+    tokenUsage
   } = useRunStore();
 
   const [showToast, setShowToast] = useState(false);
   const [selectedRun, setSelectedRun] = useState<number | null>(1);
   const [tab, setTab] = useState<'logs' | 'tokens' | 'metrics'>('logs');
+
+  useEffect(() => {
+    loadRuns();
+  }, []);
 
   useEffect(() => {
     if (error) setShowToast(true);
@@ -53,7 +60,7 @@ export default function Dashboard() {
       socket.off('active_task', onActiveTask);
       socket.off('error', onError);
     };
-  }, [addProgress, setOutput, setTokenUsage, setActiveTask, setError]);
+  }, [addProgress, setOutput, setTokenUsage, setActiveTask, setError, loadRuns]);
 
   // Load run history
   useEffect(() => {
@@ -79,26 +86,24 @@ export default function Dashboard() {
             msg = data.detail;
           }
         } catch {}
-        // Check for LLM API key errors
-        if (msg.toLowerCase().includes('invalid api key') || msg.toLowerCase().includes('authenticationerror') || res.status === 401) {
-          setError('LLM API key is invalid or missing. Please check your backend configuration.');
-        } else {
-          setError(msg);
-        }
+        setError(msg);
+        setLoading(false);
         return;
       }
-      // No need to set output/graph here, will be handled by socket events
-    } catch (err: any) {
-      const msg = err.message || String(err);
-      if (msg.toLowerCase().includes('invalid api key') || msg.toLowerCase().includes('authenticationerror')) {
-        setError('LLM API key is invalid or missing. Please check your backend configuration.');
-      } else {
-        setError(msg);
-      }
-    } finally {
+      // Save run to history
+      const now = new Date();
+      saveRun({
+        id: now.getTime(),
+        goal,
+        status: '✅',
+        tokens: tokenUsage ?? 0,
+        cost: 0,
+        time: now.toLocaleString()
+      });
       setLoading(false);
-      // Refresh run history
-      void fetchRuns();
+    } catch (e: any) {
+      setError(e.message);
+      setLoading(false);
     }
   };
 

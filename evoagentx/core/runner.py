@@ -22,6 +22,10 @@ async def run_workflow_async(goal: str, progress_cb=None, return_graph: bool = F
         raise ValueError("Goal must be at least 10 characters")
 
     openai_key = os.getenv("OPENAI_API_KEY")
+    if openai_key:
+        print("[DEBUG] OpenAI key loaded in runner:", openai_key[:8], "...")
+    else:
+        print("[DEBUG] OpenAI key loaded in runner: MISSING")
 
     llm_config = OpenAILLMConfig(
         model="gpt-4o-mini",
@@ -47,7 +51,15 @@ async def run_workflow_async(goal: str, progress_cb=None, return_graph: bool = F
         orig_update = env.update
 
         def patched_update(message, state=None, error=None, **kwargs):
-            asyncio.create_task(progress_cb(str(message)))
+            import json
+            progress_data = {
+                "type": "progress",
+                "message": str(message),
+                "state": state,
+                "error": error,
+                **kwargs
+            }
+            asyncio.create_task(progress_cb(json.dumps(progress_data)))
             # Ensure state and error are not None before passing
             if state is None or error is None:
                 raise ValueError("'state' and 'error' must not be None")
@@ -58,10 +70,12 @@ async def run_workflow_async(goal: str, progress_cb=None, return_graph: bool = F
     workflow = WorkFlow(graph=workflow_graph, agent_manager=agent_manager, llm=llm, environment=env)
     context = {"today_events": get_today_events(), "goal": goal}
     if progress_cb:
-        await progress_cb("Workflow started")
+        import json
+        await progress_cb(json.dumps({"type": "status", "message": "Workflow started"}))
     result = await workflow.async_execute(context)
     if progress_cb:
-        await progress_cb("Workflow completed")
+        import json
+        await progress_cb(json.dumps({"type": "status", "message": "Workflow completed"}))
     if return_graph:
         return result, workflow_graph.get_config()
     return result

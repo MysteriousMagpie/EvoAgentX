@@ -39,7 +39,15 @@ export default function OutputPanel() {
             className={`mb-2 flex items-start gap-2 transition-colors duration-500 ${highlightedIdx === idx ? 'bg-yellow-100' : ''}`}
           >
             <span className="text-xs text-gray-400 min-w-[70px]">[{formatTime(item.timestamp)}]</span>
-            <span className="flex-1"><ReactMarkdown>{item.message}</ReactMarkdown></span>
+            <span className="flex-1">
+              <ReactMarkdown>{item.message}</ReactMarkdown>
+              {item.type && item.type !== 'progress' && (
+                <span className="ml-2 text-xs text-blue-500">[{item.type}]</span>
+              )}
+              {item.error && (
+                <span className="ml-2 text-xs text-red-500">[Error: {String(item.error)}]</span>
+              )}
+            </span>
           </div>
         ))
       ) : (

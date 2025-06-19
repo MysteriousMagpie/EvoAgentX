@@ -7,7 +7,7 @@ export default function Navbar({ darkMode, setDarkMode }: { darkMode: boolean, s
         <span className="font-bold text-xl tracking-tight text-primary">EvoAgentX</span>
         <NavLink to="/" className="ml-6 text-gray-700 dark:text-gray-200 hover:text-primary">Agent Hub</NavLink>
         <NavLink to="/planner" className="ml-4 text-gray-700 dark:text-gray-200 hover:text-primary">Planner</NavLink>
-        <NavLink to="/runs" className="ml-4 text-gray-700 dark:text-gray-200 hover:text-primary">Runs</NavLink>
+        {/* <NavLink to="/runs" className="ml-4 text-gray-700 dark:text-gray-200 hover:text-primary">Runs</NavLink> */}
       </div>
       <div className="flex items-center gap-4">
         <button

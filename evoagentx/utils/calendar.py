@@ -11,9 +11,9 @@ def _base_url() -> str:
 
 def get_today_events() -> List[Dict[str, Any]]:
     """Return today's events from the calendar API."""
-    url = f"{_base_url()}/events"
+    url = f"{_base_url()}/events/"  # Use trailing slash to avoid redirect
     try:
-        resp = requests.get(url, timeout=5)
+        resp = requests.get(url, timeout=10)  # Increased timeout to 10 seconds
         resp.raise_for_status()
         events = resp.json()
     except Exception as e:  # noqa: BLE001
