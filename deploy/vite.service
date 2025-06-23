@@ -1,0 +1,13 @@
+[Unit]
+Description=EvoAgentX FastAPI server
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/path/to/EvoAgentX
+ExecStart=/usr/bin/python run_evoagentx.py
+Restart=always
+Environment=OPENAI_API_KEY=<your-openai-api-key>
+
+[Install]
+WantedBy=multi-user.target

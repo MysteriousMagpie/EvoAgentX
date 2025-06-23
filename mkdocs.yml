@@ -212,6 +212,7 @@ plugins:
               - Evaluators: api/evaluators.md
               - Optimizers: api/optimizers.md
               - Development Guide: development.md
+              - Production Deployment: production.md
 
         - locale: zh
           name: 中文
