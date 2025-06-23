@@ -58,22 +58,24 @@ class CodeGenerationProblem:
     def __post_init__(self):
         self.platform = Platform(self.platform)
         self.difficulty = Difficulty(self.difficulty)
-        self.contest_date = datetime.fromisoformat(self.contest_date)
+        # Only convert if contest_date is a string
+        if isinstance(self.contest_date, str):
+            self.contest_date = datetime.fromisoformat(self.contest_date)
 
-        self.public_test_cases = json.loads(self.public_test_cases)  # type: ignore
-        self.public_test_cases = [Test(**t) for t in self.public_test_cases]
+        public_tests_data = json.loads(self.public_test_cases)  # type: ignore
+        self.public_test_cases = [Test(input=t["input"], output=t["output"], testtype=t["testtype"]) for t in public_tests_data]
 
         try:
-            self.private_test_cases = json.loads(self.private_test_cases)  # type: ignore
+            private_tests_data = json.loads(self.private_test_cases)  # type: ignore
         except Exception:
-            self.private_test_cases = json.loads(
+            private_tests_data = json.loads(
                 pickle.loads(
                     zlib.decompress(
                         base64.b64decode(self.private_test_cases.encode("utf-8"))  # type: ignore
                     )
                 )
             )  # type: ignore
-        self.private_test_cases = [Test(**t) for t in self.private_test_cases]
+        self.private_test_cases = [Test(input=t["input"], output=t["output"], testtype=t["testtype"]) for t in private_tests_data]
 
         self.metadata = json.loads(self.metadata)  # type: ignore
 
@@ -123,7 +125,7 @@ class CodeGenerationProblem:
         }
 
 
-def load_code_generation_dataset(release_version="release_v1", cache_dir: str = None, start_date=None, end_date=None) -> list[CodeGenerationProblem]:
+def load_code_generation_dataset(release_version="release_v1", cache_dir: str | None = None, start_date=None, end_date=None) -> list[CodeGenerationProblem]:
     dataset = load_dataset("livecodebench/code_generation_lite", split="test", version_tag=release_version, trust_remote_code=True, cache_dir=cache_dir)
     dataset = [CodeGenerationProblem(**p) for p in dataset]  # type: ignore
     if start_date is not None:

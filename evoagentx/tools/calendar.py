@@ -1,6 +1,7 @@
 from typing import Any, Callable, Dict, List
 from .tool import Tool
 from ..utils.calendar import get_today_events, add_event, remove_event, update_event
+from ..core.logging import logger
 
 
 class CalendarTool(Tool):
@@ -10,17 +11,33 @@ class CalendarTool(Tool):
         super().__init__(name=name, **kwargs)
 
     def get_today(self) -> List[Dict[str, Any]]:
-        return get_today_events()
+        try:
+            return get_today_events()
+        except Exception as e:
+            logger.warning(f"Calendar service unavailable: {e}")
+            return []
 
     def add_event(self, title: str, start: str, end: str) -> Dict[str, Any]:
-        return add_event(title, start, end)
+        try:
+            return add_event(title, start, end)
+        except Exception as e:
+            logger.error(f"Failed to add calendar event: {e}")
+            return {"error": "Calendar service unavailable", "success": False}
 
     def remove_event(self, event_id: int) -> Dict[str, Any]:
-        remove_event(event_id)
-        return {"ok": True}
+        try:
+            remove_event(str(event_id))
+            return {"ok": True}
+        except Exception as e:
+            logger.error(f"Failed to remove calendar event: {e}")
+            return {"error": "Calendar service unavailable", "success": False}
 
     def update_event(self, event_id: int, title: str, start: str, end: str) -> Dict[str, Any]:
-        return update_event(event_id, title, start, end)
+        try:
+            return update_event(str(event_id), title, start, end)
+        except Exception as e:
+            logger.error(f"Failed to update calendar event: {e}")
+            return {"error": "Calendar service unavailable", "success": False}
 
 
     def get_tools(self) -> List[Callable]:

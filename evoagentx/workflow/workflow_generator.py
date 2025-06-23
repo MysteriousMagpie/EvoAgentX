@@ -6,7 +6,7 @@ import time
 from ..core.logging import logger
 from ..core.module import BaseModule
 # from ..core.base_config import Parameter
-from ..core.message import MessageType
+from ..core.message import Message, MessageType
 from ..models.base_model import BaseLLM
 from ..agents.agent import Agent
 from ..agents.task_planner import TaskPlanner
@@ -57,11 +57,7 @@ class WorkFlowGenerator(BaseModule):
                 raise ValueError("Must provide `llm` when `workflow_reviewer` is None")
             assert isinstance(self.llm, BaseLLM), "LLM instance is required"
             from typing import cast
-            self.workflow_reviewer = cast(WorkFlowReviewer, WorkFlowReviewer(
-                llm=self.llm,
-                name="Workflow Reviewer",
-                description="Agent responsible for reviewing workflow plans and agents."
-            ))
+            self.workflow_reviewer = cast(WorkFlowReviewer, WorkFlowReviewer(llm=self.llm))
 
     def _execute_with_retry(self, operation_name: str, operation, retries_left: int = 1, **kwargs) -> tuple[Any, int]:
         """Helper method to execute operations with retry logic.
@@ -86,12 +82,10 @@ class WorkFlowGenerator(BaseModule):
                 result = operation(**kwargs)
                 return result, cur_retries
             except Exception as e:
-                import traceback
-                tb_str = traceback.format_exc()
-                sleep_time = 2 ** cur_retries
-                logger.error(f"Failed to {operation_name} in {cur_retries + 1} attempts. Retry after {sleep_time} seconds.\nError: {e}\nTraceback:\n{tb_str}")
                 if cur_retries == retries_left:
-                    raise ValueError(f"Failed to {operation_name} after {cur_retries + 1} attempts.\nError: {e}\nTraceback:\n{tb_str}")
+                    raise ValueError(f"Failed to {operation_name} after {cur_retries + 1} attempts.\nError: {e}")
+                sleep_time = 2 ** cur_retries
+                logger.error(f"Failed to {operation_name} in {cur_retries + 1} attempts. Retry after {sleep_time} seconds.\nError: {e}")
                 time.sleep(sleep_time)
                 cur_retries += 1
 
