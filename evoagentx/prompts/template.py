@@ -1,5 +1,4 @@
 import regex
-from copy import deepcopy 
 from pydantic import Field
 from pydantic_core import PydanticUndefined
 from typing import Union, Optional, List, Any, Type
@@ -8,7 +7,7 @@ from ..tools.tool import Tool
 
 from ..core.logging import logger 
 from ..core.module import BaseModule 
-from ..models.base_model import LLMOutputParser, PARSER_VALID_MODE 
+from ..models.base_model import LLMOutputParser
 
 
 class PromptTemplate(BaseModule):

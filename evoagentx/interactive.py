@@ -74,7 +74,7 @@ class InteractiveSelfImprove:
             try:
                 import json
                 decision = json.loads(critique).get("decision", "retry")
-            except:
+            except Exception:
                 decision = "retry"
             console.print(f"Decision: [bold]{decision}[/]\n", style="bold")
             # Show summary for this cycle

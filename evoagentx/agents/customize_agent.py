@@ -9,7 +9,7 @@ from ..core.registry import MODULE_REGISTRY, PARSE_FUNCTION_REGISTRY
 from ..core.module_utils import parse_json_from_llm_output
 from ..core.message import Message, MessageType
 from ..models.model_configs import LLMConfig 
-from ..models.base_model import BaseLLM, LLMOutputParser, PARSER_VALID_MODE
+from ..models.base_model import BaseLLM, PARSER_VALID_MODE
 from ..prompts.utils import DEFAULT_SYSTEM_PROMPT
 from ..prompts.template import PromptTemplate
 from ..actions.action import Action, ActionInput, ActionOutput
