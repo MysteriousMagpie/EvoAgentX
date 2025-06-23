@@ -7,16 +7,18 @@ const TokenBurnDownChart: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch the most recent execution
-    fetch('/api/executions?limit=1')
-      .then(res => res.json())
-      .then(async executions => {
+    const load = async () => {
+      try {
+        console.log('Fetching:', '/api/executions?limit=1');
+        const res = await fetch('/api/executions?limit=1');
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        const executions = await res.json();
         if (executions && executions.length > 0) {
           const exec = executions[0];
-          // Fetch details for the most recent execution
+          console.log('Fetching:', `/api/executions/${exec.id}`);
           const execRes = await fetch(`/api/executions/${exec.id}`);
+          if (!execRes.ok) throw new Error(`Server returned ${execRes.status}`);
           const execDetails = await execRes.json();
-          // Transform step_results into chart data
           const stepResults = execDetails.step_results || {};
           const chartData = Object.entries(stepResults).map(([step, details]: any) => ({
             step,
@@ -24,9 +26,13 @@ const TokenBurnDownChart: React.FC = () => {
           }));
           setData(chartData);
         }
+      } catch (err) {
+        console.error('Failed to fetch token data', err);
+      } finally {
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      }
+    };
+    void load();
   }, []);
 
   if (loading) return <div>Loading...</div>;
