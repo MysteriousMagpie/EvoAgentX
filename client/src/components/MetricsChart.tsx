@@ -6,23 +6,27 @@ const MetricsChart: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Fetch the most recent execution
-    fetch('/api/executions?limit=1')
-      .then(res => res.json())
-      .then(executions => {
+    const load = async () => {
+      try {
+        console.log('Fetching:', '/api/executions?limit=1');
+        const res = await fetch('/api/executions?limit=1');
+        if (!res.ok) throw new Error(`Server returned ${res.status}`);
+        const executions = await res.json();
         if (executions && executions.length > 0) {
           const exec = executions[0];
-          // Extract metrics from the results field
           const results = exec.results || {};
-          // Assume metrics are key-value pairs in results
           const chartData = Object.entries(results)
             .filter(([_, v]) => typeof v === 'number')
             .map(([metric, value]) => ({ metric, value }));
           setData(chartData);
         }
+      } catch (err) {
+        console.error('Failed to fetch metrics', err);
+      } finally {
         setLoading(false);
-      })
-      .catch(() => setLoading(false));
+      }
+    };
+    void load();
   }, []);
 
   if (loading) return <div>Loading...</div>;
