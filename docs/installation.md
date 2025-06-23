@@ -114,4 +114,5 @@ bash start-dev.sh
 **Note:**
 - The frontend (`localhost:5173`) proxies API and Socket.IO requests to the backend (`localhost:8000`).
 - Make sure you always run the backend as `sio_app` for Socket.IO support.
+- Set `ALLOWED_ORIGINS` to specify which origins may access the backend. Provide a comma-separated list, e.g. `ALLOWED_ORIGINS=http://localhost:5173,https://example.com`. If unset, it defaults to `http://localhost:5173`.
 
