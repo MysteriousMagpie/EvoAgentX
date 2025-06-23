@@ -44,8 +44,8 @@ for pkg in "${REQUIRED_PKGS[@]}"; do
  done
 
 # Print status
-echo "Starting frontend (Vite dev server)..."
-npm run dev &
+echo "Starting frontend (Vite dev server, accessible on all interfaces)..."
+npm run dev -- --host 0.0.0.0 &
 FRONTEND_PID=$!
 
 # 6. Open dashboard in default browser (macOS only)
