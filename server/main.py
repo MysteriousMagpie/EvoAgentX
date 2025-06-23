@@ -7,7 +7,11 @@ from .api.run import router as run_router
 from .api.calendar import calendar_router
 from .core.websocket_manager import manager
 
-sio_allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173")
+# Build the list of allowed Socket.IO origins (can override via ALLOWED_ORIGINS env var)
+sio_allowed_origins = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:5173, http://192.168.10.51:5173, http://192.168.10.51:5174"
+)
 allowed_origins = [origin.strip() for origin in sio_allowed_origins.split(',') if origin.strip()]
 
 app = FastAPI()
