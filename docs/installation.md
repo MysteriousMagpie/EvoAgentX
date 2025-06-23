@@ -95,7 +95,7 @@ uvicorn server.main:sio_app --reload
 ```bash
 cd client
 npm install # or pnpm install
-npm run dev
+npm run dev -- --host 0.0.0.0
 ```
 
 - The frontend will be available at `http://localhost:5173` by default (see `vite.config.ts`).
