@@ -8,6 +8,7 @@ import Toast from '../components/Toast';
 import RunHistory from '../components/RunHistory';
 import TokenBurnDownChart from '../components/TokenBurnDownChart';
 import MetricsChart from '../components/MetricsChart';
+import { API_URL } from '../api';
 
 export default function Dashboard() {
   const {
@@ -73,7 +74,7 @@ export default function Dashboard() {
     reset();
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/run', {
+      const res = await fetch(`${API_URL}/run`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ goal })

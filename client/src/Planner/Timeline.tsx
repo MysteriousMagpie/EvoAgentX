@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import TaskModal from './TaskModal';
+import { API_URL } from '../api';
 
 interface EventItem {
   id: string;
@@ -20,7 +21,7 @@ const Timeline: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('http://localhost:8000/events');
+      const res = await fetch(`${API_URL}/events`);
       if (!res.ok) throw new Error('Failed to load events');
       const data = await res.json();
       setEvents(data);
@@ -50,13 +51,13 @@ const Timeline: React.FC = () => {
     setError(null);
     try {
       if (editing) {
-        await fetch(`http://localhost:8000/events/${editing.id}`, {
+        await fetch(`${API_URL}/events/${editing.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(ev),
         });
       } else {
-        await fetch('http://localhost:8000/events', {
+        await fetch(`${API_URL}/events`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(ev),
@@ -74,7 +75,7 @@ const Timeline: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      await fetch(`http://localhost:8000/events/${id}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/events/${id}`, { method: 'DELETE' });
       await loadEvents();
       handleClose();
     } catch (e: any) {

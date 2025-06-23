@@ -1,10 +1,11 @@
 import { io, Socket } from "socket.io-client";
+import { API_URL } from './api';
 
 let socket: Socket | null = null;
 
 export function getSocket() {
   if (!socket) {
-    socket = io(import.meta.env.VITE_API_URL || "http://localhost:8000");
+    socket = io(API_URL);
   }
   return socket;
 }
