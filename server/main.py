@@ -1,18 +1,22 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+import os
 import socketio
 
 from .api.run import router as run_router
 from .api.calendar import calendar_router
 from .core.websocket_manager import manager
 
+sio_allowed_origins = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173")
+allowed_origins = [origin.strip() for origin in sio_allowed_origins.split(',') if origin.strip()]
+
 app = FastAPI()
-sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins=['http://localhost:5173'])
+sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins=allowed_origins)
 sio_app = socketio.ASGIApp(sio, app)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
