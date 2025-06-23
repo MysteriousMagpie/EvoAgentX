@@ -21,7 +21,7 @@ if lsof -i:8000 -t >/dev/null; then
 fi
 
 # 4. Start backend
-(uvicorn server.main:sio_app --reload &)
+(uvicorn server.main:sio_app --host 0.0.0.0 --reload &)
 BACKEND_PID=$!
 echo "Started backend (PID $BACKEND_PID) on http://localhost:8000"
 

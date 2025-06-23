@@ -85,10 +85,11 @@ To run both the FastAPI backend (with Socket.IO support) and the React frontend:
 1. **Start the backend with Socket.IO:**
 
 ```bash
-uvicorn server.main:sio_app --reload
+uvicorn server.main:sio_app --host 0.0.0.0 --reload
 ```
 
-- This exposes both REST API and Socket.IO endpoints on `http://localhost:8000`.
+- This exposes both REST API and Socket.IO endpoints on `http://localhost:8000` 
+  and makes the backend reachable from other devices on your network.
 
 2. **Start the frontend (Vite):**
 
