@@ -1,4 +1,6 @@
-import subprocess, shlex, os, textwrap, json, tempfile, pathlib
+import subprocess
+import shlex
+import textwrap
 
 SAFE_CMDS = {"pytest", "ruff", "npm", "pnpm", "git", "echo"}
 

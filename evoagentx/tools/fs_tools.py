@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Any
 
 SANDBOX_ROOT = Path(__file__).resolve().parents[3]  # repo root
 
