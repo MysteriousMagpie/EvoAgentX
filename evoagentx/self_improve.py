@@ -27,7 +27,7 @@ def self_improve(goal: str, llm, max_cycles=3, token_cap=20000):
     branch = f"self-improve-{uuid.uuid4()}"
     AgentManager.toolbox["shell.run"](f"git checkout -b {branch}")
     # Generate and run workflow
-    wf = generate_self_improve_workflow(goal, llm)
+    generate_self_improve_workflow(goal, llm)
     # --- Loop logic ---
     cycles = 0
     tokens_spent = 0
@@ -36,7 +36,7 @@ def self_improve(goal: str, llm, max_cycles=3, token_cap=20000):
         # 1. CodeSearchAgent
         search_result = CodeSearchAgent().act(goal)
         # 2. RefactorAgent (stub: just echo search result)
-        refactor_result = RefactorAgent().act("stub.py", search_result)
+        RefactorAgent().act("stub.py", search_result)
         # 3. TestAgent
         test_result = TestAgent().act()
         # 4. CriticAgent

@@ -5,7 +5,6 @@ except ImportError:
 
 import threading
 import json
-from typing import Dict, Literal, Optional
 from .base import DBStoreBase
 from ..schema import TableType, MemoryStore, AgentStore, WorkflowStore, HistoryStore
 
@@ -146,7 +145,7 @@ class PostgreSQL(DBStoreBase):
                 tables = cur.fetchall()
                 table_info = []
                 for (table_name,) in tables:
-                    cur.execute(f"SELECT column_name, data_type FROM information_schema.columns WHERE table_name = %s", (table_name,))
+                    cur.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = %s", (table_name,))
                     columns = cur.fetchall()
                     table_info.append({
                         "table_name": table_name,

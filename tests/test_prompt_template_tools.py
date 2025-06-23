@@ -2,7 +2,7 @@ import pytest
 from evoagentx.prompts.template import PromptTemplate
 from evoagentx.tools.tool import Tool
 from typing import List, Dict, Any, Callable
-from pydantic import BaseModel, Field
+
 from evoagentx.models.base_model import LLMOutputParser
 
 class SimpleTool(Tool):

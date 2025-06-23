@@ -6,7 +6,7 @@ import time
 from ..core.logging import logger
 from ..core.module import BaseModule
 # from ..core.base_config import Parameter
-from ..core.message import Message, MessageType
+from ..core.message import MessageType
 from ..models.base_model import BaseLLM
 from ..agents.agent import Agent
 from ..agents.task_planner import TaskPlanner
