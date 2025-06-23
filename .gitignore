@@ -122,3 +122,4 @@ logs/
 
 # Node
 node_modules/
+.vite/
