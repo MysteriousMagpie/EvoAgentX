@@ -6,7 +6,7 @@ from ..core.logging import logger
 
 
 def _base_url() -> str:
-    return os.getenv("CALENDAR_API_URL", "http://localhost:8000").rstrip("/")
+    return os.getenv("CALENDAR_API_URL", "http://127.0.0.1:8000").rstrip("/")
 
 
 def get_today_events() -> List[Dict[str, Any]]:
