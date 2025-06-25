@@ -5,6 +5,7 @@ import socketio
 
 from .api.run import router as run_router
 from .api.calendar import calendar_router
+from .api.meta import router as meta_router
 from .core.websocket_manager import manager
 
 # Build the list of allowed Socket.IO origins (can override via ALLOWED_ORIGINS env var)
@@ -28,6 +29,7 @@ app.add_middleware(
 
 app.include_router(run_router)
 app.include_router(calendar_router)
+app.include_router(meta_router)
 
 
 @app.websocket("/ws")
