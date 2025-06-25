@@ -1,11 +1,11 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import socketio
+import pkg_resources
 
 from .api.run import router as run_router
 from .api.calendar import calendar_router
-from .api.meta import router as meta_router
 from .core.websocket_manager import manager
 
 # Build the list of allowed Socket.IO origins (can override via ALLOWED_ORIGINS env var)
@@ -29,7 +29,20 @@ app.add_middleware(
 
 app.include_router(run_router)
 app.include_router(calendar_router)
-app.include_router(meta_router)
+
+status_router = APIRouter()
+
+
+@status_router.get("/status")
+async def status() -> dict[str, str]:
+    """Return basic service health information."""
+    return {
+        "status": "ok",
+        "version": pkg_resources.get_distribution("evoagentx").version,
+    }
+
+
+app.include_router(status_router)
 
 
 @app.websocket("/ws")
