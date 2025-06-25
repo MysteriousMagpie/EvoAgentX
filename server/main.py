@@ -1,7 +1,8 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 import os
 import socketio
+import pkg_resources
 
 from .api.run import router as run_router
 from .api.calendar import calendar_router
@@ -28,6 +29,20 @@ app.add_middleware(
 
 app.include_router(run_router)
 app.include_router(calendar_router)
+
+status_router = APIRouter()
+
+
+@status_router.get("/status")
+async def status() -> dict[str, str]:
+    """Return basic service health information."""
+    return {
+        "status": "ok",
+        "version": pkg_resources.get_distribution("evoagentx").version,
+    }
+
+
+app.include_router(status_router)
 
 
 @app.websocket("/ws")
