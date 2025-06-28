@@ -18,18 +18,33 @@ sio_allowed_origins = os.getenv(
     "ALLOWED_ORIGINS",
     "http://localhost:5173, http://192.168.10.51:5173, http://192.168.10.51:5174"
 )
-allowed_origins = [origin.strip() for origin in sio_allowed_origins.split(',') if origin.strip()]
+sio_origins = [origin.strip() for origin in sio_allowed_origins.split(',') if origin.strip()]
+
+# Configure CORS origins for FastAPI - include Obsidian plugin origins
+cors_origins = [
+    "*",  # Allow all origins for development - can be restricted in production
+    "app://obsidian.md",
+    "capacitor://localhost", 
+    "http://localhost",
+    "http://localhost:5173",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+    "http://192.168.10.51:5173",
+    "http://192.168.10.51:5174"
+]
 
 app = FastAPI()
-sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins=allowed_origins)
+sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins=sio_origins)
 sio_app = socketio.ASGIApp(sio, app)
 
+# Add CORS middleware with comprehensive configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
 
 app.include_router(run_router)

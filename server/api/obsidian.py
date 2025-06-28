@@ -91,7 +91,7 @@ async def chat_with_agent(request: AgentChatRequest):
                     action_name=action_name,
                     action_input_data={"query": request.message}
                 )
-                response_text = str(result.content) if hasattr(result, 'content') else str(result)
+                response_text = str(result[0].content) if isinstance(result, tuple) and hasattr(result[0], 'content') else str(result)
             else:
                 # Fallback for other agent types
                 response_text = f"Agent {agent.name} processed: {request.message}"
@@ -132,7 +132,7 @@ async def execute_workflow(request: WorkflowRequest):
         return WorkflowResponse(
             goal=request.goal,
             output=result,
-            graph=graph,
+            graph=graph if isinstance(graph, dict) else None,
             execution_id=execution_id,
             status="completed"
         )
@@ -165,7 +165,7 @@ async def copilot_completion(request: CopilotCompletionRequest):
             }
         )
         
-        completion_text = str(result.content) if hasattr(result, 'content') else str(result)
+        completion_text = str(result[0].content) if isinstance(result, tuple) and hasattr(result[0], 'content') else str(result)
         
         return CopilotCompletionResponse(
             completion=completion_text,
@@ -255,7 +255,7 @@ async def analyze_vault_context(request: VaultContextRequest):
             }
         )
         
-        summary = str(result.content) if hasattr(result, 'content') else str(result)
+        summary = str(result[0].content) if isinstance(result, tuple) and hasattr(result[0], 'content') else str(result)
         
         # Create mock relevant notes (in real implementation, this would use vector search)
         relevant_notes = [
@@ -291,7 +291,7 @@ async def plan_tasks(request: TaskPlanningRequest):
         )
         
         # Parse the result (assuming it's a structured plan)
-        plan_content = str(result.content) if hasattr(result, 'content') else str(result)
+        plan_content = str(result[0].content) if isinstance(result, tuple) and hasattr(result[0], 'content') else str(result)
         
         # Create mock subtasks (in real implementation, parse from LLM output)
         subtasks = [
@@ -327,7 +327,7 @@ async def execute_agent_action(request: AgentExecutionRequest):
         execution_time = (datetime.now() - start_time).total_seconds()
         
         return AgentExecutionResponse(
-            result=result.content if hasattr(result, 'content') else result,
+            result=result[0].content if isinstance(result, tuple) and hasattr(result[0], 'content') else result,
             execution_time=execution_time,
             conversation_id=conversation_id,
             metadata={
@@ -344,41 +344,45 @@ async def execute_agent_action(request: AgentExecutionRequest):
 async def parse_intelligence(request: IntelligenceParseRequest):
     """Parse user input for intelligence and context extraction"""
     try:
-        # Try to import the intelligence parser function
+        # Intelligence parser is implemented in TypeScript, so we provide a Python fallback
+        # In a production environment, you might want to call the TypeScript module via subprocess
+        # or implement the intelligence parsing logic in Python
+        
+        # Fallback implementation - process the user input
         try:
-            import sys
-            import os
-            sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-            from intelligenceParser import handleMessage
+            # Mock intelligence parsing logic
+            user_input = request.user_input.lower().strip()
             
-            # Convert history to the expected format
-            history = [{"role": msg["role"], "content": msg["content"]} for msg in request.history]
+            # Simple intent detection
+            intent = "general"
+            if any(word in user_input for word in ["schedule", "calendar", "appointment"]):
+                intent = "scheduling"
+            elif any(word in user_input for word in ["task", "todo", "reminder"]):
+                intent = "task_management"
+            elif any(word in user_input for word in ["note", "write", "document"]):
+                intent = "note_taking"
             
-            # Call the intelligence parser
-            result = await handleMessage(
-                userId=request.user_id,
-                history=history,
-                userInput=request.user_input
-            )
+            # Simple follow-up detection
+            follow_up_needed = any(word in user_input for word in ["?", "how", "what", "when", "where", "why"])
             
-            # Check if it's a follow-up question
-            follow_up_needed = result.startswith("FollowUp:")
+            parsed_data = {
+                "intent": intent,
+                "context": request.user_input,
+                "confidence": 0.7,
+                "entities": []
+            }
             
-            # Try to parse as JSON for structured data
-            parsed_data = None
-            if not follow_up_needed:
-                try:
-                    parsed_data = json.loads(result)
-                except json.JSONDecodeError:
-                    pass
+            response = f"Processed input with intent: {intent}"
+            if follow_up_needed:
+                response = f"FollowUp: {response}"
             
             return IntelligenceParseResponse(
-                response=result,
+                response=response,
                 parsed_data=parsed_data,
                 follow_up_needed=follow_up_needed
             )
-        except ImportError:
-            # Fallback if intelligence parser is not available
+        except Exception as e:
+            # Final fallback
             return IntelligenceParseResponse(
                 response=f"Processed: {request.user_input}",
                 parsed_data={"intent": "general", "context": request.user_input},
@@ -436,9 +440,9 @@ async def delete_conversation(conversation_id: str):
 @router.get("/health")
 async def health_check():
     """Health check endpoint"""
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "active_agents": len(active_agents),
-        "active_conversations": len(conversations)
-    }
+    return {"status": "ok"}
+
+@router.options("/health")
+async def health_check_options():
+    """Handle OPTIONS request for health endpoint"""
+    return {"status": "ok"}
