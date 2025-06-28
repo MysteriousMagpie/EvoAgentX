@@ -74,7 +74,6 @@ class Agent(BaseModule):
         """Make the operator callable and automatically choose between sync and async execution."""
         try:
             asyncio.get_running_loop()
-            self.async_execute(*args, **kwargs)
             # If already in an event loop, user must await manually; raise error for sync context
             raise RuntimeError("Cannot call async agent in a running event loop; please use 'await agent(...)' instead.")
         except RuntimeError:

@@ -1,15 +1,29 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "ES2020",
+    "module": "ESNext",
     "moduleResolution": "node",
     "esModuleInterop": true,
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
-    "allowImportingTsExtensions": true,
+    "allowImportingTsExtensions": true
   },
   "include": ["**/*.ts"],
   "exclude": ["node_modules"]
 }
+// This configuration file is set up to compile TypeScript files to ES2020 JavaScript.
+// It uses ESNext modules and has strict type checking enabled.
+// No JavaScript files will be emitted (noEmit: true).
+// The `skipLibCheck` option is set to true to skip type checking of declaration files,
+// and `forceConsistentCasingInFileNames` ensures that file names are case-sensitive.
+// The `include` and `exclude` options specify which files to include and exclude from the compilation.
+// The `esModuleInterop` option allows for better compatibility with CommonJS modules.
+// The `moduleResolution` option is set to `node`, which is suitable for Node.js environments.
+// The `allowImportingTsExtensions` option is enabled in this configuration,
+// which allows importing TypeScript files with their extensions (.ts, .tsx).
+// This is compatible with the current settings since `noEmit` is set to true.
+// This configuration is suitable for projects that want to use TypeScript for type checking
+// without generating JavaScript output. It can be used in conjunction with other build tools
+// or bundlers that handle the JavaScript compilation separately.
