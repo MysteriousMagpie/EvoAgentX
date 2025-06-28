@@ -1,9 +1,11 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Request
+from fastapi.exceptions import RequestValidationError
 from typing import Dict, List, Optional
 import uuid
 import json
 import asyncio
 from datetime import datetime
+from pydantic import ValidationError
 
 from ..models.obsidian_schemas import (
     AgentChatRequest, AgentChatResponse,
@@ -25,6 +27,24 @@ from evoagentx.prompts.agent_generator import AGENT_GENERATOR
 import os
 
 router = APIRouter(prefix="/api/obsidian", tags=["obsidian"])
+
+# Custom middleware to log validation errors
+async def log_request_validation_error(request: Request, call_next):
+    try:
+        response = await call_next(request)
+        return response
+    except RequestValidationError as e:
+        # Log the validation error details
+        print(f"[VALIDATION ERROR] URL: {request.url}")
+        print(f"[VALIDATION ERROR] Method: {request.method}")
+        print(f"[VALIDATION ERROR] Headers: {dict(request.headers)}")
+        try:
+            body = await request.body()
+            print(f"[VALIDATION ERROR] Body: {body.decode()}")
+        except:
+            print(f"[VALIDATION ERROR] Could not read body")
+        print(f"[VALIDATION ERROR] Details: {e.errors()}")
+        raise e
 
 # In-memory storage for conversations and agents (consider using Redis/DB for production)
 conversations: Dict[str, List[ChatMessage]] = {}
@@ -199,11 +219,19 @@ async def list_agents():
 async def get_conversation_history(request: ConversationHistoryRequest):
     """Get conversation history"""
     try:
+        print(f"[DEBUG] Conversation history request received:")
+        print(f"[DEBUG] - conversation_id: {request.conversation_id}")
+        print(f"[DEBUG] - limit: {request.limit}")
+        print(f"[DEBUG] Available conversations: {list(conversations.keys())}")
+        
         if request.conversation_id not in conversations:
+            print(f"[DEBUG] Conversation {request.conversation_id} not found in {list(conversations.keys())}")
             raise HTTPException(status_code=404, detail="Conversation not found")
         
         messages = conversations[request.conversation_id]
         limited_messages = messages[-request.limit:] if request.limit else messages
+        
+        print(f"[DEBUG] Returning {len(limited_messages)} messages from conversation {request.conversation_id}")
         
         return ConversationHistoryResponse(
             conversation_id=request.conversation_id,
@@ -214,7 +242,62 @@ async def get_conversation_history(request: ConversationHistoryRequest):
     except HTTPException:
         raise
     except Exception as e:
+        print(f"[ERROR] Error retrieving history: {str(e)}")
+        print(f"[ERROR] Request data: conversation_id={getattr(request, 'conversation_id', 'MISSING')}, limit={getattr(request, 'limit', 'MISSING')}")
         raise HTTPException(status_code=500, detail=f"Error retrieving history: {str(e)}")
+
+# Add a better error handler for common 422 errors on this endpoint
+from fastapi import status
+from fastapi.responses import JSONResponse
+from pydantic import ValidationError
+
+@router.post("/conversation/history/validate")
+async def validate_conversation_history_request(request_body: dict):
+    """Helper endpoint to validate conversation history requests and provide helpful error messages"""
+    print(f"[DEBUG] Raw conversation history validation request: {request_body}")
+    
+    # Check if this looks like a chat request sent to the wrong endpoint
+    if "message" in request_body:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "Wrong endpoint", 
+                "message": "It looks like you're trying to send a chat message. Use POST /api/obsidian/chat instead.",
+                "correct_endpoint": "/api/obsidian/chat",
+                "expected_payload": {
+                    "message": "your message here",
+                    "conversation_id": "optional_conversation_id",
+                    "context": {}
+                },
+                "received_payload": request_body
+            }
+        )
+    
+    # Try to validate as ConversationHistoryRequest
+    try:
+        validated = ConversationHistoryRequest(**request_body)
+        return {"status": "valid", "validated_data": validated.dict()}
+    except ValidationError as e:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "Validation failed",
+                "message": "Conversation history endpoint expects 'conversation_id' (required) and optional 'limit'",
+                "expected_payload": {
+                    "conversation_id": "some-conversation-id",
+                    "limit": 50
+                },
+                "validation_errors": e.errors(),
+                "received_payload": request_body
+            }
+        )
+
+# Add a raw payload capture endpoint for debugging
+@router.post("/conversation/history/debug")
+async def debug_conversation_history(request_data: dict):
+    """Debug endpoint to see raw payload"""
+    print(f"[DEBUG] Raw conversation history payload: {json.dumps(request_data, indent=2)}")
+    return {"received_payload": request_data}
 
 @router.post("/memory/update", response_model=MemoryUpdateResponse)
 async def update_user_memory(request: MemoryUpdateRequest):

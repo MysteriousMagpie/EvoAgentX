@@ -1,5 +1,7 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, APIRouter
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, APIRouter, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 import os
 import socketio
 import pkg_resources
@@ -36,6 +38,68 @@ cors_origins = [
 app = FastAPI()
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins=sio_origins)
 sio_app = socketio.ASGIApp(sio, app)
+
+# Add global validation error handler for better debugging
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handle validation errors with detailed debugging information"""
+    # Log the validation error details
+    print(f"[VALIDATION ERROR] URL: {request.url}")
+    print(f"[VALIDATION ERROR] Method: {request.method}")
+    print(f"[VALIDATION ERROR] Headers: {dict(request.headers)}")
+    
+    # Try to get the request body for debugging
+    try:
+        body = await request.body()
+        body_str = body.decode('utf-8')
+        print(f"[VALIDATION ERROR] Raw Body: {body_str}")
+        
+        # Try to parse as JSON
+        try:
+            body_json = json.loads(body_str) if body_str else {}
+            print(f"[VALIDATION ERROR] Parsed Body: {json.dumps(body_json, indent=2)}")
+        except json.JSONDecodeError:
+            print(f"[VALIDATION ERROR] Body is not valid JSON")
+    except Exception as e:
+        print(f"[VALIDATION ERROR] Could not read request body: {e}")
+    
+    print(f"[VALIDATION ERROR] Validation Details: {exc.errors()}")
+    
+    # Check for common misrouted requests
+    error_details = exc.errors()
+    is_conversation_history_endpoint = "/conversation/history" in str(request.url)
+    has_message_field_error = any("conversation_id" in str(error.get("loc", [])) for error in error_details)
+    
+    if is_conversation_history_endpoint and has_message_field_error:
+        return JSONResponse(
+            status_code=422,
+            content={
+                "error": "Endpoint Mismatch",
+                "message": "You're sending chat data to the conversation history endpoint. Use /api/obsidian/chat instead.",
+                "correct_endpoint": "/api/obsidian/chat",
+                "expected_payload_for_chat": {
+                    "message": "your message here",
+                    "conversation_id": "optional_conversation_id"
+                },
+                "expected_payload_for_history": {
+                    "conversation_id": "required_conversation_id", 
+                    "limit": "optional_number"
+                },
+                "validation_errors": error_details
+            }
+        )
+    
+    # Default validation error response
+    return JSONResponse(
+        status_code=422,
+        content={
+            "error": "Validation Error",
+            "message": "The request data doesn't match the expected format",
+            "validation_errors": error_details,
+            "url": str(request.url),
+            "method": request.method
+        }
+    )
 
 # Add CORS middleware with comprehensive configuration
 app.add_middleware(
