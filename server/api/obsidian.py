@@ -78,7 +78,24 @@ def get_default_agent() -> Agent:
             description="A helpful assistant for Obsidian vault management and general queries",
             llm_config=get_llm_config(),
             system_prompt="You are a helpful assistant integrated with Obsidian. You help users manage their knowledge, take notes, organize thoughts, and answer questions. Provide concise, actionable responses.",
-            prompt="Answer the user's question helpfully and concisely:\n\n{query}"
+            prompt="Answer the user's question helpfully and concisely:\n\n{query}",
+            inputs=[
+                {
+                    "name": "query",
+                    "type": "str", 
+                    "description": "The user's question or message to respond to",
+                    "required": True
+                }
+            ],
+            outputs=[
+                {
+                    "name": "response",
+                    "type": "str",
+                    "description": "The assistant's helpful response to the user's question",
+                    "required": True
+                }
+            ],
+            parse_mode="str"  # Use simple string parsing instead of structured parsing
         )
     return active_agents[agent_name]
 
@@ -111,11 +128,57 @@ async def chat_with_agent(request: AgentChatRequest):
                     action_name=action_name,
                     action_input_data={"query": request.message}
                 )
-                response_text = str(result[0].content) if isinstance(result, tuple) and hasattr(result[0], 'content') else str(result)
+                
+                # Debug: print the result type and attributes
+                print(f"[DEBUG] Result type: {type(result)}")
+                print(f"[DEBUG] Result value: {result}")
+                if hasattr(result, '__dict__'):
+                    print(f"[DEBUG] Result attributes: {result.__dict__}")
+                
+                # Extract response from result - handle different result types
+                response_text = None
+                
+                # Handle Message objects with content that has response attribute
+                if hasattr(result, 'content'):
+                    content = getattr(result, 'content')
+                    if hasattr(content, 'response'):
+                        response_text = str(getattr(content, 'response'))
+                    elif isinstance(content, str):
+                        # If content is a string, use it directly
+                        response_text = content
+                    else:
+                        response_text = str(content)
+                # Try accessing 'response' attribute directly (for CustomizeAgent output)
+                elif hasattr(result, 'response'):
+                    response_text = str(getattr(result, 'response'))
+                # Handle tuple results
+                elif isinstance(result, tuple) and len(result) > 0:
+                    first_result = result[0]
+                    print(f"[DEBUG] First result type: {type(first_result)}")
+                    if hasattr(first_result, 'content'):
+                        content = getattr(first_result, 'content')
+                        if hasattr(content, 'response'):
+                            response_text = str(getattr(content, 'response'))
+                        else:
+                            response_text = str(content)
+                    elif hasattr(first_result, 'response'):
+                        response_text = str(getattr(first_result, 'response'))
+                    else:
+                        response_text = str(first_result)
+                
+                # Fallback to string conversion
+                if response_text is None:
+                    response_text = str(result)
+                    
+                print(f"[DEBUG] Final response text: {response_text}")
             else:
                 # Fallback for other agent types
                 response_text = f"Agent {agent.name} processed: {request.message}"
         except Exception as e:
+            print(f"[CHAT ERROR] Exception during agent execution: {str(e)}")
+            print(f"[CHAT ERROR] Exception type: {type(e)}")
+            import traceback
+            print(f"[CHAT ERROR] Traceback: {traceback.format_exc()}")
             response_text = f"Error processing request: {str(e)}"
         
         # Add assistant response to conversation
