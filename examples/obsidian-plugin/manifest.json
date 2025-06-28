@@ -1,0 +1,11 @@
+{
+	"id": "evoagentx",
+	"name": "EvoAgentX",
+	"version": "1.0.0",
+	"minAppVersion": "0.15.0",
+	"description": "Integrate EvoAgentX AI agents with Obsidian for intelligent note-taking, text completion, and workflow automation.",
+	"author": "EvoAgentX Team",
+	"authorUrl": "https://github.com/EvoAgentX/EvoAgentX",
+	"fundingUrl": "https://github.com/sponsors/EvoAgentX",
+	"isDesktopOnly": false
+}

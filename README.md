@@ -376,6 +376,35 @@ We appreciate your interest in contributing to our open-source initiative. We pr
 [![Star History Chart](https://api.star-history.com/svg?repos=EvoAgentX/EvoAgentX&type=Date)](https://www.star-history.com/#EvoAgentX/EvoAgentX&Date)
 
 
+## 🔌 Obsidian Integration
+
+EvoAgentX now provides comprehensive API integration for Obsidian, enabling you to use agentic AI features directly within your knowledge vault!
+
+### Features
+- **Agent Chat**: Conversational AI within your vault
+- **Copilot Completion**: Intelligent text completion while writing
+- **Workflow Execution**: Run complex agentic workflows from Obsidian
+- **Vault Analysis**: AI-powered insights about your knowledge base
+- **Task Planning**: Automated planning and organization
+- **Real-time Communication**: WebSocket support for live interactions
+
+### Quick Setup
+
+1. **Start the EvoAgentX server**:
+   ```bash
+   cd server
+   python -m uvicorn main:sio_app --host 0.0.0.0 --port 8000 --reload
+   ```
+
+2. **Install the Obsidian plugin** (see [examples/obsidian-plugin/](./examples/obsidian-plugin/))
+
+3. **Configure settings** in Obsidian and start using AI features!
+
+📖 **Full documentation**: [Obsidian Integration Guide](./docs/obsidian-integration.md)
+
+🔧 **Example plugin code**: [examples/obsidian-plugin/](./examples/obsidian-plugin/)
+
+
 ## Quick Start (Full Stack)
 
 1. Copy `.env.example` to `.env` and add your `OPENAI_API_KEY`.

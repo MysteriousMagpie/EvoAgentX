@@ -3,10 +3,15 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 import socketio
 import pkg_resources
+import json
+from datetime import datetime
+from typing import Optional
 
 from .api.run import router as run_router
 from .api.calendar import calendar_router
+from .api.obsidian import router as obsidian_router
 from .core.websocket_manager import manager
+from .core.obsidian_websocket import obsidian_ws_manager
 
 # Build the list of allowed Socket.IO origins (can override via ALLOWED_ORIGINS env var)
 sio_allowed_origins = os.getenv(
@@ -29,6 +34,7 @@ app.add_middleware(
 
 app.include_router(run_router)
 app.include_router(calendar_router)
+app.include_router(obsidian_router)
 
 status_router = APIRouter()
 
@@ -53,6 +59,51 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+
+@app.websocket("/ws/obsidian")
+async def obsidian_websocket_endpoint(websocket: WebSocket, vault_id: Optional[str] = None):
+    """WebSocket endpoint specifically for Obsidian plugin connections"""
+    connection_id = await obsidian_ws_manager.connect(websocket, vault_id)
+    try:
+        while True:
+            # Receive messages from Obsidian
+            data = await websocket.receive_text()
+            try:
+                message = json.loads(data)
+                message_type = message.get("type")
+                
+                # Handle different message types
+                if message_type == "ping":
+                    await obsidian_ws_manager.send_to_connection(connection_id, {
+                        "type": "pong",
+                        "timestamp": datetime.now().isoformat()
+                    })
+                elif message_type == "chat_message":
+                    # Handle real-time chat messages
+                    await obsidian_ws_manager.send_to_connection(connection_id, {
+                        "type": "chat_received",
+                        "message": message.get("content", ""),
+                        "timestamp": datetime.now().isoformat()
+                    })
+                elif message_type == "vault_update":
+                    # Handle vault content updates
+                    vault_id = message.get("vault_id")
+                    if vault_id:
+                        await obsidian_ws_manager.send_to_vault(vault_id, {
+                            "type": "vault_sync",
+                            "update": message.get("update", {}),
+                            "timestamp": datetime.now().isoformat()
+                        })
+                        
+            except json.JSONDecodeError:
+                await obsidian_ws_manager.send_to_connection(connection_id, {
+                    "type": "error",
+                    "message": "Invalid JSON received",
+                    "timestamp": datetime.now().isoformat()
+                })
+                
+    except WebSocketDisconnect:
+        obsidian_ws_manager.disconnect(connection_id)
 
 # Example: emit progress event from backend to all clients
 def emit_progress(message: str):
