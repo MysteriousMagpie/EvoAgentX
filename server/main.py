@@ -12,6 +12,7 @@ from typing import Optional
 from .api.run import router as run_router
 from .api.calendar import calendar_router
 from .api.obsidian import router as obsidian_router
+from .api.planner import planner_router
 from .core.websocket_manager import manager
 from .core.obsidian_websocket import obsidian_ws_manager
 
@@ -114,6 +115,7 @@ app.add_middleware(
 app.include_router(run_router)
 app.include_router(calendar_router)
 app.include_router(obsidian_router)
+app.include_router(planner_router)
 
 status_router = APIRouter()
 

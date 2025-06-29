@@ -430,6 +430,63 @@ pnpm dev
 The `client/` directory contains a full Vite + React + TypeScript project with its own `package.json`.
 
 
+## 🔗 API Endpoints
+
+### Planner API
+
+The server exposes a planner API for generating daily schedules from notes.
+
+#### POST /planner/planday
+
+Accepts a daily note and returns a Markdown schedule with headline.
+
+**Request Body:**
+```json
+{
+  "note": "string (required) - The daily note content",
+  "date": "string (optional) - Date in YYYY-MM-DD format"
+}
+```
+
+**Response:**
+```json
+{
+  "scheduleMarkdown": "string - Generated schedule as markdown table",
+  "headline": "string - Generated headline for the day"
+}
+```
+
+**Example:**
+```bash
+curl -X POST "http://localhost:3000/planner/planday" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "note": "# Daily Note\n\n## Top 3 Priorities\n- [ ] Finish project proposal\n- [ ] Review code changes\n- [ ] Update documentation\n\n## Tasks\n- [ ] Email cleanup\n- [ ] Team standup"
+  }'
+```
+
+**Example Response:**
+```json
+{
+  "scheduleMarkdown": "| Time | Plan |\n|------|------|\n| 06:00–07:00 | Priority: Finish project proposal |\n| 07:00–08:00 | Priority: Finish project proposal (cont'd) |\n...",
+  "headline": "Focus: Finish project proposal"
+}
+```
+
+#### GET /planner/health
+
+Health check endpoint for the planner service.
+
+**Response:**
+```json
+{
+  "status": "OK",
+  "service": "planner",
+  "timestamp": "2025-06-28T17:21:06.332717"
+}
+```
+
+
 ## 📚 Acknowledgements 
 This project builds upon several outstanding open-source projects: [AFlow](https://github.com/FoundationAgents/MetaGPT/tree/main/metagpt/ext/aflow), [TextGrad](https://github.com/zou-group/textgrad), [DSPy](https://github.com/stanfordnlp/dspy), [LiveCodeBench](https://github.com/LiveCodeBench/LiveCodeBench), and more. We would like to thank the developers and maintainers of these frameworks for their valuable contributions to the open-source community.
 
