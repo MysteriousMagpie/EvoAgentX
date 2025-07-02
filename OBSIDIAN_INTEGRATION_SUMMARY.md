@@ -55,31 +55,18 @@ Features:
 - Vault synchronization
 - Connection management per vault
 
-### 4. Example Obsidian Plugin
-
-**Location:** `examples/obsidian-plugin/`
-
-Complete TypeScript plugin with:
-- Chat modal interface
-- Copilot text completion
-- Workflow execution modal
-- Vault analysis commands
-- Settings configuration
-- WebSocket integration
-- Error handling
-
-### 5. Documentation & Testing
+### 4. Integration Documentation
 
 **Documentation:**
-- `docs/obsidian-integration.md` - Comprehensive integration guide
-- `examples/obsidian-plugin/README.md` - Plugin-specific documentation
+- `docs/obsidian-integration.md` - Comprehensive integration guide with API specs
 - Updated main `README.md` with Obsidian integration section
+- Complete implementation prompts for frontend developers
 
 **Testing:**
 - `test_obsidian_api.py` - Automated API testing script
 - Example API usage in all documentation
 
-### 6. Setup & Deployment
+### 5. Setup & Deployment
 
 **Scripts:**
 - `setup-obsidian.sh` - One-command setup script

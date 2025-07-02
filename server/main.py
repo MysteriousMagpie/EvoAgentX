@@ -9,12 +9,12 @@ import json
 from datetime import datetime
 from typing import Optional
 
-from .api.run import router as run_router
-from .api.calendar import calendar_router
-from .api.obsidian import router as obsidian_router
-from .api.planner import planner_router
-from .core.websocket_manager import manager
-from .core.obsidian_websocket import obsidian_ws_manager
+from server.api.run import router as run_router
+from server.api.calendar import calendar_router
+from server.api.obsidian import router as obsidian_router
+from server.api.planner import planner_router
+from server.core.websocket_manager import manager
+from server.core.obsidian_websocket import obsidian_ws_manager
 
 # Build the list of allowed Socket.IO origins (can override via ALLOWED_ORIGINS env var)
 sio_allowed_origins = os.getenv(

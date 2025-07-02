@@ -101,15 +101,9 @@ def get_default_agent() -> Agent:
 
 @router.post("/chat", response_model=AgentChatResponse)
 async def chat_with_agent(request: AgentChatRequest):
-    """Chat with an agent in a conversational manner"""
+    """Chat with an agent in a conversational manner or execute workflows based on mode"""
     try:
         conversation_id = get_or_create_conversation(request.conversation_id)
-        
-        # Get or create agent
-        if request.agent_name and request.agent_name in active_agents:
-            agent = active_agents[request.agent_name]
-        else:
-            agent = get_default_agent()
         
         # Add user message to conversation
         user_message = ChatMessage(
@@ -119,67 +113,79 @@ async def chat_with_agent(request: AgentChatRequest):
         )
         conversations[conversation_id].append(user_message)
         
-        # Get agent response
-        try:
-            # Use the agent's default action (if CustomizeAgent, it has one action)
-            if hasattr(agent, 'actions') and agent.actions:
-                action_name = agent.actions[0].name
-                result = await agent.async_execute(
-                    action_name=action_name,
-                    action_input_data={"query": request.message}
+        # Handle different modes
+        if request.mode == "agent":
+            # Agent mode: Execute workflow for complex tasks
+            try:
+                from evoagentx.core.runner import run_workflow_async
+                result, graph = await run_workflow_async(
+                    goal=request.message,
+                    return_graph=True
                 )
+                response_text = str(result)
+                agent_name = "WorkflowAgent"
+            except Exception as e:
+                print(f"[WORKFLOW ERROR] Exception during workflow execution: {str(e)}")
+                response_text = f"Workflow execution error: {str(e)}"
+                agent_name = "WorkflowAgent"
+        else:
+            # Ask mode: Simple chat with agent
+            try:
+                # Get or create agent
+                if request.agent_name and request.agent_name in active_agents:
+                    agent = active_agents[request.agent_name]
+                else:
+                    agent = get_default_agent()
                 
-                # Debug: print the result type and attributes
-                print(f"[DEBUG] Result type: {type(result)}")
-                print(f"[DEBUG] Result value: {result}")
-                if hasattr(result, '__dict__'):
-                    print(f"[DEBUG] Result attributes: {result.__dict__}")
+                agent_name = agent.name
                 
-                # Extract response from result - handle different result types
-                response_text = None
-                
-                # Handle Message objects with content that has response attribute
-                if hasattr(result, 'content'):
-                    content = getattr(result, 'content')
-                    if hasattr(content, 'response'):
-                        response_text = str(getattr(content, 'response'))
-                    elif isinstance(content, str):
-                        # If content is a string, use it directly
-                        response_text = content
-                    else:
-                        response_text = str(content)
-                # Try accessing 'response' attribute directly (for CustomizeAgent output)
-                elif hasattr(result, 'response'):
-                    response_text = str(getattr(result, 'response'))
-                # Handle tuple results
-                elif isinstance(result, tuple) and len(result) > 0:
-                    first_result = result[0]
-                    print(f"[DEBUG] First result type: {type(first_result)}")
-                    if hasattr(first_result, 'content'):
-                        content = getattr(first_result, 'content')
+                # Use the agent's default action (if CustomizeAgent, it has one action)
+                if hasattr(agent, 'actions') and agent.actions:
+                    action_name = agent.actions[0].name
+                    result = await agent.async_execute(
+                        action_name=action_name,
+                        action_input_data={"query": request.message}
+                    )
+                    
+                    # Extract response from result - handle different result types
+                    response_text = None
+                    
+                    # Handle Message objects with content that has response attribute
+                    if hasattr(result, 'content'):
+                        content = getattr(result, 'content')
                         if hasattr(content, 'response'):
                             response_text = str(getattr(content, 'response'))
+                        elif isinstance(content, str):
+                            response_text = content
                         else:
                             response_text = str(content)
-                    elif hasattr(first_result, 'response'):
-                        response_text = str(getattr(first_result, 'response'))
-                    else:
-                        response_text = str(first_result)
-                
-                # Fallback to string conversion
-                if response_text is None:
-                    response_text = str(result)
+                    # Try accessing 'response' attribute directly
+                    elif hasattr(result, 'response'):
+                        response_text = str(getattr(result, 'response'))
+                    # Handle tuple results
+                    elif isinstance(result, tuple) and len(result) > 0:
+                        first_result = result[0]
+                        if hasattr(first_result, 'content'):
+                            content = getattr(first_result, 'content')
+                            if hasattr(content, 'response'):
+                                response_text = str(getattr(content, 'response'))
+                            else:
+                                response_text = str(content)
+                        elif hasattr(first_result, 'response'):
+                            response_text = str(getattr(first_result, 'response'))
+                        else:
+                            response_text = str(first_result)
                     
-                print(f"[DEBUG] Final response text: {response_text}")
-            else:
-                # Fallback for other agent types
-                response_text = f"Agent {agent.name} processed: {request.message}"
-        except Exception as e:
-            print(f"[CHAT ERROR] Exception during agent execution: {str(e)}")
-            print(f"[CHAT ERROR] Exception type: {type(e)}")
-            import traceback
-            print(f"[CHAT ERROR] Traceback: {traceback.format_exc()}")
-            response_text = f"Error processing request: {str(e)}"
+                    # Fallback to string conversion
+                    if response_text is None:
+                        response_text = str(result)
+                else:
+                    # Fallback for other agent types
+                    response_text = f"Agent {agent.name} processed: {request.message}"
+            except Exception as e:
+                print(f"[CHAT ERROR] Exception during agent execution: {str(e)}")
+                response_text = f"Error processing request: {str(e)}"
+                agent_name = "ChatAgent"
         
         # Add assistant response to conversation
         assistant_message = ChatMessage(
@@ -192,9 +198,9 @@ async def chat_with_agent(request: AgentChatRequest):
         return AgentChatResponse(
             response=response_text,
             conversation_id=conversation_id,
-            agent_name=agent.name,
+            agent_name=agent_name,
             timestamp=datetime.now(),
-            metadata={"context": request.context}
+            metadata={"context": request.context, "mode": request.mode}
         )
         
     except Exception as e:
@@ -228,7 +234,34 @@ async def execute_workflow(request: WorkflowRequest):
 @router.post("/copilot/complete", response_model=CopilotCompletionResponse)
 async def copilot_completion(request: CopilotCompletionRequest):
     """Provide copilot-style text completion"""
+    
+    # Log the incoming request for debugging
+    print(f"[DEBUG] Copilot completion request received:")
+    print(f"[DEBUG] - Text length: {len(request.text)} characters")
+    print(f"[DEBUG] - Text preview: {repr(request.text[:100])}{'...' if len(request.text) > 100 else ''}")
+    print(f"[DEBUG] - Cursor position: {request.cursor_position}")
+    print(f"[DEBUG] - File type: {request.file_type}")
+    print(f"[DEBUG] - Context: {request.context}")
+    
     try:
+        # Validate that text is not empty
+        if not request.text or request.text.strip() == "":
+            print("[DEBUG] ERROR: Empty text provided")
+            raise HTTPException(
+                status_code=400, 
+                detail="Text cannot be empty. Please provide the text content to complete."
+            )
+        
+        # Validate cursor position
+        if request.cursor_position > len(request.text):
+            print(f"[DEBUG] ERROR: Cursor position {request.cursor_position} exceeds text length {len(request.text)}")
+            raise HTTPException(
+                status_code=400,
+                detail=f"Cursor position ({request.cursor_position}) cannot exceed text length ({len(request.text)})"
+            )
+        
+        print("[DEBUG] Request validation passed, proceeding with completion...")
+        
         # Create a specialized completion agent
         completion_agent = CustomizeAgent(
             name="CopilotAgent",
@@ -250,13 +283,20 @@ async def copilot_completion(request: CopilotCompletionRequest):
         
         completion_text = str(result[0].content) if isinstance(result, tuple) and hasattr(result[0], 'content') else str(result)
         
+        print(f"[DEBUG] Generated completion: {repr(completion_text[:100])}{'...' if len(completion_text) > 100 else ''}")
+        
         return CopilotCompletionResponse(
             completion=completion_text,
             confidence=0.85,  # Could be calculated based on model certainty
             suggestions=[completion_text]  # Could generate multiple alternatives
         )
         
+    except HTTPException:
+        # Re-raise HTTP exceptions (validation errors)
+        raise
     except Exception as e:
+        print(f"[DEBUG] ERROR: Completion failed with exception: {str(e)}")
+        print(f"[DEBUG] Exception type: {type(e).__name__}")
         raise HTTPException(status_code=500, detail=f"Completion error: {str(e)}")
 
 @router.get("/agents", response_model=AgentListResponse)
@@ -592,3 +632,43 @@ async def health_check():
 async def health_check_options():
     """Handle OPTIONS request for health endpoint"""
     return {"status": "ok"}
+
+@router.post("/copilot/debug")
+async def copilot_debug(request: Request):
+    """Debug endpoint to see what payload is being sent"""
+    try:
+        body = await request.body()
+        headers = dict(request.headers)
+        
+        print(f"[DEBUG] === COPILOT DEBUG ENDPOINT ===")
+        print(f"[DEBUG] Method: {request.method}")
+        print(f"[DEBUG] URL: {request.url}")
+        print(f"[DEBUG] Headers: {headers}")
+        print(f"[DEBUG] Raw body: {body}")
+        
+        if body:
+            try:
+                body_str = body.decode('utf-8')
+                print(f"[DEBUG] Decoded body: {body_str}")
+                body_json = json.loads(body_str)
+                print(f"[DEBUG] Parsed JSON: {json.dumps(body_json, indent=2)}")
+                return {
+                    "received_payload": body_json,
+                    "headers": headers,
+                    "content_length": len(body),
+                    "validation_status": "Would validate against CopilotCompletionRequest"
+                }
+            except json.JSONDecodeError as e:
+                return {
+                    "error": f"JSON decode failed: {e}",
+                    "raw_body": body.decode('utf-8', errors='replace'),
+                    "headers": headers
+                }
+        else:
+            return {
+                "error": "Empty request body",
+                "headers": headers
+            }
+            
+    except Exception as e:
+        return {"error": f"Debug failed: {e}"}

@@ -396,13 +396,11 @@ EvoAgentX now provides comprehensive API integration for Obsidian, enabling you 
    python -m uvicorn main:sio_app --host 0.0.0.0 --port 8000 --reload
    ```
 
-2. **Install the Obsidian plugin** (see [examples/obsidian-plugin/](./examples/obsidian-plugin/))
+2. **Install the Obsidian plugin** using the integration guide
 
 3. **Configure settings** in Obsidian and start using AI features!
 
 📖 **Full documentation**: [Obsidian Integration Guide](./docs/obsidian-integration.md)
-
-🔧 **Example plugin code**: [examples/obsidian-plugin/](./examples/obsidian-plugin/)
 
 
 ## Quick Start (Full Stack)
@@ -414,7 +412,7 @@ EvoAgentX now provides comprehensive API integration for Obsidian, enabling you 
 python -m venv .venv
 source .venv/bin/activate
 pip install -r server/requirements.txt
-uvicorn server.main:app --reload
+python -m uvicorn server.main:sio_app --host 0.0.0.0 --port 8000 --reload
 ```
 
 The optional calendar API integrates with macOS Calendar via `osascript`. These
@@ -458,7 +456,7 @@ Accepts a daily note and returns a Markdown schedule with headline.
 
 **Example:**
 ```bash
-curl -X POST "http://localhost:3000/planner/planday" \
+curl -X POST "http://localhost:8000/planner/planday" \
   -H "Content-Type: application/json" \
   -d '{
     "note": "# Daily Note\n\n## Top 3 Priorities\n- [ ] Finish project proposal\n- [ ] Review code changes\n- [ ] Update documentation\n\n## Tasks\n- [ ] Email cleanup\n- [ ] Team standup"

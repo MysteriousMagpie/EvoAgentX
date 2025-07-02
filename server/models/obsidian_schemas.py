@@ -1,5 +1,5 @@
-from pydantic import BaseModel
-from typing import Optional, List, Dict, Any, Union
+from pydantic import BaseModel, Field, validator
+from typing import Optional, List, Dict, Any, Union, Literal
 from datetime import datetime
 
 
@@ -16,6 +16,7 @@ class AgentChatRequest(BaseModel):
     conversation_id: Optional[str] = None
     agent_name: Optional[str] = None
     context: Optional[Dict[str, Any]] = None
+    mode: Literal["ask", "agent"] = Field(default="ask", description="Chat mode: 'ask' for simple Q&A, 'agent' for complex workflows")
 
 
 class AgentChatResponse(BaseModel):
@@ -40,10 +41,20 @@ class WorkflowResponse(BaseModel):
 
 
 class CopilotCompletionRequest(BaseModel):
-    text: str
-    cursor_position: int
-    file_type: Optional[str] = None
-    context: Optional[str] = None
+    text: str = Field(..., min_length=1, description="The text content to complete")
+    cursor_position: int = Field(..., ge=0, description="Position of cursor in the text")
+    file_type: Optional[str] = Field(None, description="Type of file (markdown, text, etc.)")
+    context: Optional[str] = Field(None, description="Additional context for completion")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "text": "Hello world, this is a sample text for",
+                "cursor_position": 35,
+                "file_type": "markdown",
+                "context": "writing a technical document"
+            }
+        }
 
 
 class CopilotCompletionResponse(BaseModel):
