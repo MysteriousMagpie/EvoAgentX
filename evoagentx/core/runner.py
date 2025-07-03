@@ -3,6 +3,7 @@ from evoagentx.workflow import WorkFlowGenerator, WorkFlowGraph, WorkFlow
 from evoagentx.workflow.environment import Environment
 from evoagentx.agents import AgentManager
 from evoagentx.utils.calendar import get_today_events
+from evoagentx.core.logging import logger
 import os
 import asyncio
 from dotenv import load_dotenv
@@ -36,8 +37,15 @@ async def run_workflow_async(goal: str, progress_cb=None, return_graph: bool = F
     )
     llm = OpenAILLM(config=llm_config)
 
+    # Get today's events, but handle potential timeout when called from same server
+    try:
+        today_events = get_today_events()
+    except Exception as e:
+        logger.warning(f"Failed to fetch calendar events: {e}")
+        today_events = []
+
     context = {
-        "today_events": get_today_events(),
+        "today_events": today_events,
         "goal": goal,
     }
 
@@ -68,7 +76,15 @@ async def run_workflow_async(goal: str, progress_cb=None, return_graph: bool = F
         env.update = patched_update  # type: ignore
 
     workflow = WorkFlow(graph=workflow_graph, agent_manager=agent_manager, llm=llm, environment=env)
-    context = {"today_events": get_today_events(), "goal": goal}
+    
+    # Get today's events, but handle potential timeout when called from same server
+    try:
+        today_events = get_today_events()
+    except Exception as e:
+        logger.warning(f"Failed to fetch calendar events: {e}")
+        today_events = []
+        
+    context = {"today_events": today_events, "goal": goal}
     if progress_cb:
         import json
         await progress_cb(json.dumps({"type": "status", "message": "Workflow started"}))

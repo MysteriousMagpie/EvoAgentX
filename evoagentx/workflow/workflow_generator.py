@@ -57,7 +57,11 @@ class WorkFlowGenerator(BaseModule):
                 raise ValueError("Must provide `llm` when `workflow_reviewer` is None")
             assert isinstance(self.llm, BaseLLM), "LLM instance is required"
             from typing import cast
-            self.workflow_reviewer = cast(WorkFlowReviewer, WorkFlowReviewer(llm=self.llm))
+            self.workflow_reviewer = cast(WorkFlowReviewer, WorkFlowReviewer(
+                name="WorkFlowReviewer",
+                description="Agent responsible for reviewing and improving workflow plans",
+                llm=self.llm
+            ))
 
     def _execute_with_retry(self, operation_name: str, operation, retries_left: int = 1, **kwargs) -> tuple[Any, int]:
         """Helper method to execute operations with retry logic.
