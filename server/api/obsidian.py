@@ -18,10 +18,18 @@ from ..models.obsidian_schemas import (
     TaskPlanningRequest, TaskPlanningResponse,
     AgentExecutionRequest, AgentExecutionResponse,
     IntelligenceParseRequest, IntelligenceParseResponse,
-    ChatMessage
+    ChatMessage,
+    # Vault management schemas
+    VaultStructureRequest, VaultStructureResponse,
+    FileOperationRequest, FileOperationResponse,
+    BatchFileOperationRequest, BatchFileOperationResponse,
+    VaultSearchRequest, VaultSearchResponse,
+    VaultOrganizationRequest, VaultOrganizationResponse,
+    VaultBackupRequest, VaultBackupResponse
 )
 from evoagentx.core.runner import run_workflow_async
 from evoagentx.agents import CustomizeAgent, Agent
+from evoagentx.agents.vault_manager import VaultManagerAgent
 from evoagentx.models import OpenAILLMConfig
 from evoagentx.agents.task_planner import TaskPlanner
 from evoagentx.prompts.agent_generator import AGENT_GENERATOR
@@ -53,6 +61,16 @@ async def log_request_validation_error(request: Request, call_next):
 conversations: Dict[str, List[ChatMessage]] = {}
 active_agents: Dict[str, Agent] = {}
 user_memory: Dict[str, Dict] = {}
+
+# Global vault manager instance
+vault_manager: Optional[VaultManagerAgent] = None
+
+def get_vault_manager(vault_root: Optional[str] = None) -> VaultManagerAgent:
+    """Get or create the global vault manager instance"""
+    global vault_manager
+    if vault_manager is None:
+        vault_manager = VaultManagerAgent(llm_config=get_llm_config(), vault_root=vault_root)
+    return vault_manager
 
 def get_llm_config():
     """Get the default LLM configuration"""
@@ -460,307 +478,198 @@ async def analyze_vault_context(request: VaultContextRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Context analysis error: {str(e)}")
 
-@router.post("/planning/tasks", response_model=TaskPlanningResponse)
-async def plan_tasks(request: TaskPlanningRequest):
-    """Plan tasks and create actionable steps"""
+# ===== NEW VAULT MANAGEMENT ENDPOINTS =====
+
+@router.post("/vault/structure", response_model=VaultStructureResponse)
+async def get_vault_structure(request: VaultStructureRequest):
+    """Get comprehensive vault structure with AI analysis"""
     try:
-        # Create task planner
-        planner = TaskPlanner(llm_config=get_llm_config())
+        manager = get_vault_manager()
         
-        # Build planning context
-        planning_context = {
-            "goal": request.goal,
-            "constraints": request.constraints or [],
-            "deadline": request.deadline.isoformat() if request.deadline else None
-        }
-        
-        result = await planner.async_execute(
-            action_name="TaskPlanning",
-            action_input_data=planning_context
+        structure_data = manager.get_vault_structure(
+            include_content=request.include_content,
+            max_depth=request.max_depth,
+            file_types=request.file_types
         )
         
-        # Parse the result (assuming it's a structured plan)
-        plan_content = str(result[0].content) if isinstance(result, tuple) and hasattr(result[0], 'content') else str(result)
+        # Convert the response to match the expected schema format
+        vault_structure = structure_data["raw_structure"]
+        ai_analysis = structure_data["ai_analysis"]
         
-        # Create mock subtasks (in real implementation, parse from LLM output)
-        subtasks = [
-            {"name": f"Subtask for: {request.goal}", "priority": "high", "estimated_time": 30}
-        ]
-        
-        return TaskPlanningResponse(
-            plan={"description": plan_content, "context": planning_context},
-            subtasks=subtasks,
-            estimated_duration=60
+        # Build response according to schema
+        return VaultStructureResponse(
+            vault_name=str(manager.vault_tools.vault_root.name),
+            total_files=vault_structure.get("total_files", 0),
+            total_folders=vault_structure.get("total_folders", 0),
+            total_size=vault_structure.get("total_size", 0),
+            structure=vault_structure.get("structure", {}),
+            recent_files=vault_structure.get("recent_files", []),
+            orphaned_files=vault_structure.get("orphaned_files", [])
         )
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Task planning error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Vault structure error: {str(e)}")
 
-@router.post("/agent/execute", response_model=AgentExecutionResponse)
-async def execute_agent_action(request: AgentExecutionRequest):
-    """Execute a specific action on an agent"""
+@router.post("/vault/file/operation", response_model=FileOperationResponse)
+async def perform_file_operation(request: FileOperationRequest):
+    """Perform individual file operations (create, update, delete, move, copy)"""
     try:
-        if request.agent_name not in active_agents:
-            raise HTTPException(status_code=404, detail=f"Agent {request.agent_name} not found")
+        manager = get_vault_manager()
         
-        agent = active_agents[request.agent_name]
-        conversation_id = get_or_create_conversation(request.conversation_id)
-        
-        start_time = datetime.now()
-        
-        result = await agent.async_execute(
-            action_name=request.action_name,
-            action_input_data=request.inputs
-        )
-        
-        execution_time = (datetime.now() - start_time).total_seconds()
-        
-        return AgentExecutionResponse(
-            result=result[0].content if isinstance(result, tuple) and hasattr(result[0], 'content') else result,
-            execution_time=execution_time,
-            conversation_id=conversation_id,
-            metadata={
-                "agent": request.agent_name,
-                "action": request.action_name,
-                "timestamp": datetime.now().isoformat()
-            }
-        )
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Agent execution error: {str(e)}")
-
-@router.post("/intelligence/parse", response_model=IntelligenceParseResponse)
-async def parse_intelligence(request: IntelligenceParseRequest):
-    """Parse user input for intelligence and context extraction"""
-    try:
-        # Intelligence parser is implemented in TypeScript, so we provide a Python fallback
-        # In a production environment, you might want to call the TypeScript module via subprocess
-        # or implement the intelligence parsing logic in Python
-        
-        # Fallback implementation - process the user input
-        try:
-            # Mock intelligence parsing logic
-            user_input = request.user_input.lower().strip()
-            
-            # Simple intent detection
-            intent = "general"
-            if any(word in user_input for word in ["schedule", "calendar", "appointment"]):
-                intent = "scheduling"
-            elif any(word in user_input for word in ["task", "todo", "reminder"]):
-                intent = "task_management"
-            elif any(word in user_input for word in ["note", "write", "document"]):
-                intent = "note_taking"
-            
-            # Simple follow-up detection
-            follow_up_needed = any(word in user_input for word in ["?", "how", "what", "when", "where", "why"])
-            
-            parsed_data = {
-                "intent": intent,
-                "context": request.user_input,
-                "confidence": 0.7,
-                "entities": []
-            }
-            
-            response = f"Processed input with intent: {intent}"
-            if follow_up_needed:
-                response = f"FollowUp: {response}"
-            
-            return IntelligenceParseResponse(
-                response=response,
-                parsed_data=parsed_data,
-                follow_up_needed=follow_up_needed
+        if request.operation == "create":
+            result = manager.create_file(
+                request.file_path, 
+                request.content or "", 
+                request.create_missing_folders
             )
-        except Exception as e:
-            # Final fallback
-            return IntelligenceParseResponse(
-                response=f"Processed: {request.user_input}",
-                parsed_data={"intent": "general", "context": request.user_input},
-                follow_up_needed=False
+        elif request.operation == "update":
+            result = manager.update_file(request.file_path, request.content or "")
+        elif request.operation == "delete":
+            result = manager.delete_file(request.file_path)
+        elif request.operation == "move":
+            if not request.destination_path:
+                raise HTTPException(status_code=400, detail="Destination path required for move operation")
+            result = manager.move_file(
+                request.file_path, 
+                request.destination_path, 
+                request.create_missing_folders
             )
+        elif request.operation == "copy":
+            if not request.destination_path:
+                raise HTTPException(status_code=400, detail="Destination path required for copy operation")
+            result = manager.copy_file(
+                request.file_path, 
+                request.destination_path, 
+                request.create_missing_folders
+            )
+        else:
+            raise HTTPException(status_code=400, detail=f"Unknown operation: {request.operation}")
         
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Intelligence parsing error: {str(e)}")
-
-@router.post("/agents/create")
-async def create_custom_agent(
-    name: str,
-    description: str,
-    system_prompt: str,
-    prompt: str
-):
-    """Create a new custom agent"""
-    try:
-        if name in active_agents:
-            raise HTTPException(status_code=400, detail=f"Agent {name} already exists")
-        
-        agent = CustomizeAgent(
-            name=name,
-            description=description,
-            llm_config=get_llm_config(),
-            system_prompt=system_prompt,
-            prompt=prompt
+        return FileOperationResponse(
+            success=result.get("success", False),
+            message=result.get("message", ""),
+            file_path=request.file_path,
+            operation_performed=request.operation
         )
         
-        active_agents[name] = agent
-        
-        return {
-            "success": True,
-            "agent_name": name,
-            "message": f"Agent {name} created successfully"
-        }
-        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Agent creation error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"File operation error: {str(e)}")
 
-@router.delete("/conversations/{conversation_id}")
-async def delete_conversation(conversation_id: str):
-    """Delete a conversation"""
+@router.post("/vault/file/batch", response_model=BatchFileOperationResponse)
+async def perform_batch_file_operations(request: BatchFileOperationRequest):
+    """Perform multiple file operations in batch"""
     try:
-        if conversation_id in conversations:
-            del conversations[conversation_id]
-            return {"success": True, "message": "Conversation deleted"}
-        else:
-            raise HTTPException(status_code=404, detail="Conversation not found")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting conversation: {str(e)}")
-
-@router.get("/health")
-async def health_check():
-    """Health check endpoint"""
-    return {"status": "ok"}
-
-@router.options("/health")
-async def health_check_options():
-    """Handle OPTIONS request for health endpoint"""
-    return {"status": "ok"}
-
-@router.post("/copilot/debug")
-async def copilot_debug(request: Request):
-    """Debug endpoint to see what payload is being sent"""
-    try:
-        body = await request.body()
-        headers = dict(request.headers)
+        manager = get_vault_manager()
         
-        print(f"[DEBUG] === COPILOT DEBUG ENDPOINT ===")
-        print(f"[DEBUG] Method: {request.method}")
-        print(f"[DEBUG] URL: {request.url}")
-        print(f"[DEBUG] Headers: {headers}")
-        print(f"[DEBUG] Raw body: {body}")
-        
-        if body:
-            try:
-                body_str = body.decode('utf-8')
-                print(f"[DEBUG] Decoded body: {body_str}")
-                body_json = json.loads(body_str)
-                print(f"[DEBUG] Parsed JSON: {json.dumps(body_json, indent=2)}")
-                return {
-                    "received_payload": body_json,
-                    "headers": headers,
-                    "content_length": len(body),
-                    "validation_status": "Would validate against CopilotCompletionRequest"
-                }
-            except json.JSONDecodeError as e:
-                return {
-                    "error": f"JSON decode failed: {e}",
-                    "raw_body": body.decode('utf-8', errors='replace'),
-                    "headers": headers
-                }
-        else:
-            return {
-                "error": "Empty request body",
-                "headers": headers
+        # Convert request operations to the format expected by the manager
+        operations = []
+        for op in request.operations:
+            operation_dict = {
+                "operation": op.operation,
+                "file_path": op.file_path,
+                "create_missing_folders": op.create_missing_folders
             }
-            
-    except Exception as e:
-        return {"error": f"Debug failed: {e}"}
-
-# Helper functions for the new chat endpoint
-
-
-async def run_ask(message: str, ctx_embedding: Optional[List[float]] = None) -> str:
-    """Handle ASK mode - simple Q&A with optional context."""
-    try:
-        # Get the default agent
-        agent = get_default_agent()
+            if op.content is not None:
+                operation_dict["content"] = op.content
+            if op.destination_path is not None:
+                operation_dict["destination_path"] = op.destination_path
+            operations.append(operation_dict)
         
-        # For ASK mode, we could enhance the query with context information
-        enhanced_query = message
-        if ctx_embedding:
-            # In the future, we could use ctx_embedding to find relevant context
-            # For now, just indicate that context was processed
-            enhanced_query = f"Context was provided. {message}"
+        result = manager.batch_file_operations(operations, request.continue_on_error)
         
-        if hasattr(agent, 'actions') and agent.actions:
-            action_name = agent.actions[0].name
-            result = await agent.async_execute(
-                action_name=action_name,
-                action_input_data={"query": enhanced_query}
-            )
-            
-            # Extract response (same logic as existing chat endpoint)
-            if hasattr(result, 'content'):
-                content = getattr(result, 'content')
-                if hasattr(content, 'response'):
-                    return str(getattr(content, 'response'))
-                elif isinstance(content, str):
-                    return content
-                else:
-                    return str(content)
-            elif hasattr(result, 'response'):
-                return str(getattr(result, 'response'))
-            else:
-                return str(result)
-        else:
-            return f"Agent {agent.name} processed: {message}"
-            
-    except Exception as e:
-        return f"Error processing request: {str(e)}"
-
-
-async def run_agent(msg: str, ctx_emb: Optional[List[float]] = None) -> str:
-    """Handle AGENT mode - complex workflows with optional context embedding."""
-    try:
-        # For agent mode, inject context if available (for now as part of the goal)
-        goal = msg
-        if ctx_emb:
-            # In the future, we could use ctx_emb to find relevant context
-            # For now, just indicate that context was processed
-            goal = f"Context was provided. {msg}"
+        # Convert results to response format
+        operation_results = []
+        for i, op_result in enumerate(result["results"]):
+            operation_results.append(FileOperationResponse(
+                success=op_result.get("success", False),
+                message=op_result.get("message", ""),
+                file_path=request.operations[i].file_path,
+                operation_performed=request.operations[i].operation
+            ))
         
-        result, graph = await run_workflow_async(
-            goal=goal,
-            return_graph=True
-        )
-        return str(result)
-    except Exception as e:
-        return f"Workflow execution error: {str(e)}"
-
-
-@router.post("/chat/simple", response_model=ChatResponse)
-async def chat(req: ChatRequest):
-    """Simple chat endpoint with automatic intent classification and context embedding."""
-    try:
-        # Classify intent
-        intent = await classify_intent(req.message)
-        
-        # Embed context once (if any) so we can stick similarity-matched
-        # chunks into the prompt OR agent memory
-        ctx_embedding: Optional[List[float]] = None
-        if req.context:
-            ctx_embedding = await get_embedding(req.context)
-        
-        # Route based on intent
-        if intent.intent == Intent.AGENT:
-            answer = await run_agent(req.message, ctx_embedding)
-        else:
-            answer = await run_ask(req.message, ctx_embedding)
-        
-        return ChatResponse(
-            answer=answer,
-            context_used=bool(req.context)
+        return BatchFileOperationResponse(
+            success=result["success"],
+            completed_operations=result["completed_operations"],
+            failed_operations=result["failed_operations"],
+            results=operation_results,
+            errors=result["errors"]
         )
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Batch operation error: {str(e)}")
+
+@router.post("/vault/search", response_model=VaultSearchResponse)
+async def search_vault(request: VaultSearchRequest):
+    """Perform intelligent search across the vault with AI analysis"""
+    try:
+        manager = get_vault_manager()
+        
+        search_results = manager.intelligent_search(
+            query=request.query,
+            search_type=request.search_type,
+            file_types=request.file_types,
+            max_results=request.max_results
+        )
+        
+        # Convert results to response format
+        results = []
+        for result_item in search_results["raw_results"].get("results", []):
+            results.append({
+                "file_path": result_item.get("file_path", ""),
+                "file_name": result_item.get("file_name", ""),
+                "match_type": result_item.get("match_type", request.search_type),
+                "snippet": result_item.get("snippet", ""),
+                "line_number": result_item.get("line_number"),
+                "relevance_score": result_item.get("relevance_score", 0.0)
+            })
+        
+        return VaultSearchResponse(
+            query=request.query,
+            total_results=len(results),
+            results=results,
+            search_time=search_results["raw_results"].get("search_time", 0.0)
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search error: {str(e)}")
+
+@router.post("/vault/organize", response_model=VaultOrganizationResponse)
+async def organize_vault(request: VaultOrganizationRequest):
+    """Plan vault reorganization with AI assistance"""
+    try:
+        manager = get_vault_manager()
+        
+        reorganization_plan = manager.plan_vault_reorganization(
+            organization_goal=request.organization_goal,
+            user_preferences=request.preferences
+        )
+        
+        return VaultOrganizationResponse(
+            reorganization_plan=reorganization_plan["reorganization_plan"],
+            suggested_changes=[],  # TODO: Parse from plan
+            estimated_changes_count=0,  # TODO: Calculate from plan
+            dry_run=request.dry_run,
+            execution_steps=reorganization_plan["implementation_steps"].split("\n") if reorganization_plan.get("implementation_steps") else None
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Organization error: {str(e)}")
+
+@router.post("/vault/backup", response_model=VaultBackupResponse)
+async def create_vault_backup(request: VaultBackupRequest):
+    """Create a backup of the vault"""
+    try:
+        # For now, return a placeholder response since backup functionality
+        # is not yet implemented in the VaultManagerAgent
+        return VaultBackupResponse(
+            success=False,
+            backup_path="",
+            backup_size=0,
+            files_backed_up=0,
+            backup_time=datetime.now()
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Backup error: {str(e)}")
+
+# ===== END NEW VAULT MANAGEMENT ENDPOINTS =====
