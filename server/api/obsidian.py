@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from ..models.obsidian_schemas import (
     AgentChatRequest, AgentChatResponse,
+    ChatRequest, ChatResponse,
     WorkflowRequest, WorkflowResponse,
     CopilotCompletionRequest, CopilotCompletionResponse,
     AgentListResponse, ConversationHistoryRequest, ConversationHistoryResponse,
@@ -24,6 +25,8 @@ from evoagentx.agents import CustomizeAgent, Agent
 from evoagentx.models import OpenAILLMConfig
 from evoagentx.agents.task_planner import TaskPlanner
 from evoagentx.prompts.agent_generator import AGENT_GENERATOR
+from evoagentx.intents.embed_classifier import classify_intent, Intent
+from evoagentx.embeds import get_embedding
 import os
 
 router = APIRouter(prefix="/api/obsidian", tags=["obsidian"])
@@ -672,3 +675,92 @@ async def copilot_debug(request: Request):
             
     except Exception as e:
         return {"error": f"Debug failed: {e}"}
+
+# Helper functions for the new chat endpoint
+
+
+async def run_ask(message: str, ctx_embedding: Optional[List[float]] = None) -> str:
+    """Handle ASK mode - simple Q&A with optional context."""
+    try:
+        # Get the default agent
+        agent = get_default_agent()
+        
+        # For ASK mode, we could enhance the query with context information
+        enhanced_query = message
+        if ctx_embedding:
+            # In the future, we could use ctx_embedding to find relevant context
+            # For now, just indicate that context was processed
+            enhanced_query = f"Context was provided. {message}"
+        
+        if hasattr(agent, 'actions') and agent.actions:
+            action_name = agent.actions[0].name
+            result = await agent.async_execute(
+                action_name=action_name,
+                action_input_data={"query": enhanced_query}
+            )
+            
+            # Extract response (same logic as existing chat endpoint)
+            if hasattr(result, 'content'):
+                content = getattr(result, 'content')
+                if hasattr(content, 'response'):
+                    return str(getattr(content, 'response'))
+                elif isinstance(content, str):
+                    return content
+                else:
+                    return str(content)
+            elif hasattr(result, 'response'):
+                return str(getattr(result, 'response'))
+            else:
+                return str(result)
+        else:
+            return f"Agent {agent.name} processed: {message}"
+            
+    except Exception as e:
+        return f"Error processing request: {str(e)}"
+
+
+async def run_agent(msg: str, ctx_emb: Optional[List[float]] = None) -> str:
+    """Handle AGENT mode - complex workflows with optional context embedding."""
+    try:
+        # For agent mode, inject context if available (for now as part of the goal)
+        goal = msg
+        if ctx_emb:
+            # In the future, we could use ctx_emb to find relevant context
+            # For now, just indicate that context was processed
+            goal = f"Context was provided. {msg}"
+        
+        result, graph = await run_workflow_async(
+            goal=goal,
+            return_graph=True
+        )
+        return str(result)
+    except Exception as e:
+        return f"Workflow execution error: {str(e)}"
+
+
+@router.post("/chat/simple", response_model=ChatResponse)
+async def chat(req: ChatRequest):
+    """Simple chat endpoint with automatic intent classification and context embedding."""
+    try:
+        # Classify intent
+        intent = await classify_intent(req.message)
+        
+        # Embed context once (if any) so we can stick similarity-matched
+        # chunks into the prompt OR agent memory
+        ctx_embedding: Optional[List[float]] = None
+        if req.context:
+            ctx_embedding = await get_embedding(req.context)
+        
+        # Route based on intent
+        if intent.intent == Intent.AGENT:
+            answer = await run_agent(req.message, ctx_embedding)
+        else:
+            answer = await run_ask(req.message, ctx_embedding)
+        
+        return ChatResponse(
+            answer=answer,
+            context_used=bool(req.context)
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")

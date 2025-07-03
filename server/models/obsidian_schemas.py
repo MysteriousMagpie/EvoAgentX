@@ -11,6 +11,16 @@ class ChatMessage(BaseModel):
     timestamp: Optional[datetime] = None
 
 
+class ChatRequest(BaseModel):
+    message: str
+    context: Optional[str] = None
+
+
+class ChatResponse(BaseModel):
+    answer: str
+    context_used: bool
+
+
 class AgentChatRequest(BaseModel):
     message: str
     conversation_id: Optional[str] = None
@@ -29,7 +39,7 @@ class AgentChatResponse(BaseModel):
 
 class WorkflowRequest(BaseModel):
     goal: str
-    context: Optional[Dict[str, Any]] = None
+    context: Optional[str] = None
 
 
 class WorkflowResponse(BaseModel):
