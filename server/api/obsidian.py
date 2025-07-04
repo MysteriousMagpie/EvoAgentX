@@ -39,6 +39,12 @@ import os
 
 router = APIRouter(prefix="/api/obsidian", tags=["obsidian"])
 
+# Health check endpoint for CORS testing
+@router.get("/health")
+async def health_check():
+    """Health check endpoint for VaultPilot integration"""
+    return {"status": "ok", "service": "obsidian-api", "timestamp": datetime.now().isoformat()}
+
 # Custom middleware to log validation errors
 async def log_request_validation_error(request: Request, call_next):
     try:

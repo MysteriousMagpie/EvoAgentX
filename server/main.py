@@ -41,6 +41,62 @@ app = FastAPI()
 sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins=sio_origins)
 sio_app = socketio.ASGIApp(sio, app)
 
+# Enhanced CORS setup for VaultPilot integration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allow_headers=[
+        "Accept",
+        "Accept-Language", 
+        "Content-Language",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Origin",
+        "User-Agent",
+        "Cache-Control",
+        "Pragma"
+    ],
+    expose_headers=[
+        "Content-Length",
+        "Content-Type", 
+        "Date",
+        "Server"
+    ],
+    max_age=3600
+)
+print("CORS configured for VaultPilot integration (development=True)")
+
+# Add debug middleware to see CORS headers
+@app.middleware("http")
+async def debug_cors_middleware(request: Request, call_next):
+    response = await call_next(request)
+    
+    # Debug: Print response headers for CORS debugging
+    if any('access-control' in header.lower() for header, value in response.headers.items()):
+        print(f"CORS Response headers for {request.method} {request.url.path}:")
+        for header, value in response.headers.items():
+            if 'access-control' in header.lower():
+                print(f"  {header}: {value}")
+    
+    return response
+
+# Handle OPTIONS preflight requests
+@app.options("/{path:path}")
+async def options_handler(request: Request, path: str):
+    """Handle CORS preflight requests"""
+    return JSONResponse(
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, PATCH",
+            "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Requested-With, Accept, Origin, User-Agent, Cache-Control, Pragma",
+            "Access-Control-Max-Age": "3600"
+        }
+    )
+
 # Add global validation error handler for better debugging
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -103,15 +159,15 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         }
     )
 
-# Add CORS middleware with comprehensive configuration
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=cors_origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-)
+# Add CORS middleware with comprehensive configuration (this is now handled by setup_cors)
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=cors_origins,
+#     allow_credentials=True,
+#     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
+#     allow_headers=["*"],
+#     expose_headers=["*"],
+# )
 
 app.include_router(run_router)
 app.include_router(calendar_router)
