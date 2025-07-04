@@ -151,6 +151,10 @@ class VaultStructureResponse(BaseModel):
     structure: VaultFolderInfo
     recent_files: List[VaultFileInfo]
     orphaned_files: List[VaultFileInfo]
+    # AI Analysis fields
+    analysis: Optional[str] = None
+    recommendations: Optional[str] = None
+    organization_score: Optional[str] = None
 
 
 class FileOperationRequest(BaseModel):

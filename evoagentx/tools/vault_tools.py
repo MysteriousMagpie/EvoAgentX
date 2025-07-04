@@ -156,6 +156,11 @@ class ObsidianVaultTools:
     
     def _get_mock_vault_structure(self) -> Dict[str, Any]:
         """Return mock vault structure for sandbox mode"""
+        from datetime import datetime
+        
+        # Create a common timestamp for mock data
+        mock_time = datetime.now()
+        
         return {
             "vault_name": "Demo Vault",
             "total_files": 25,
@@ -164,32 +169,38 @@ class ObsidianVaultTools:
             "structure": {
                 "path": "",
                 "name": "Demo Vault",
+                "file_count": 2,
+                "subfolder_count": 2,
                 "files": [
-                    {"path": "README.md", "name": "README.md", "size": 1024, "file_type": "md"},
-                    {"path": "Daily Notes.md", "name": "Daily Notes.md", "size": 2048, "file_type": "md"}
+                    {"path": "README.md", "name": "README.md", "size": 1024, "file_type": "md", "modified": mock_time},
+                    {"path": "Daily Notes.md", "name": "Daily Notes.md", "size": 2048, "file_type": "md", "modified": mock_time}
                 ],
                 "subfolders": [
                     {
                         "path": "Projects",
-                        "name": "Projects", 
+                        "name": "Projects",
+                        "file_count": 2,
+                        "subfolder_count": 0,
                         "files": [
-                            {"path": "Projects/Project A.md", "name": "Project A.md", "size": 4096, "file_type": "md"},
-                            {"path": "Projects/Project B.md", "name": "Project B.md", "size": 3072, "file_type": "md"}
+                            {"path": "Projects/Project A.md", "name": "Project A.md", "size": 4096, "file_type": "md", "modified": mock_time},
+                            {"path": "Projects/Project B.md", "name": "Project B.md", "size": 3072, "file_type": "md", "modified": mock_time}
                         ],
                         "subfolders": []
                     },
                     {
                         "path": "Resources",
                         "name": "Resources",
+                        "file_count": 1,
+                        "subfolder_count": 0,
                         "files": [
-                            {"path": "Resources/Articles.md", "name": "Articles.md", "size": 8192, "file_type": "md"}
+                            {"path": "Resources/Articles.md", "name": "Articles.md", "size": 8192, "file_type": "md", "modified": mock_time}
                         ],
                         "subfolders": []
                     }
                 ]
             },
             "recent_files": [
-                {"path": "Daily Notes.md", "name": "Daily Notes.md", "size": 2048, "file_type": "md"}
+                {"path": "Daily Notes.md", "name": "Daily Notes.md", "size": 2048, "file_type": "md", "modified": mock_time}
             ],
             "orphaned_files": []
         }

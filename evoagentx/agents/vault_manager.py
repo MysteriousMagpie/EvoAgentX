@@ -34,21 +34,19 @@ class VaultManagerAgent:
 - Potential improvements to vault structure
 - Identification of orphaned or poorly connected content
 
-Provide clear, actionable insights about vault organization.""",
+You must provide structured output with specific fields as requested.""",
             prompt="""Analyze the vault structure data provided and give comprehensive insights:
 
 VAULT DATA:
 {vault_data}
 
-Please provide:
-1. Overall assessment of vault organization
-2. Strengths of current structure
-3. Areas for improvement
-4. Specific recommendations
-5. File distribution analysis
-6. Connectivity insights
+Provide your analysis in the following structure:
 
-Focus on practical, actionable suggestions for better vault organization.""",
+ANALYSIS: [Comprehensive assessment covering: overall vault organization, strengths of current structure, file distribution patterns, and connectivity insights]
+
+RECOMMENDATIONS: [Specific, actionable recommendations for improving vault organization, including folder structure improvements, naming conventions, interlinking strategies, and organizational workflows]
+
+ORGANIZATION_SCORE: [Rate the vault organization from 1-10 as a single number, where 1 is very poor and 10 is excellent]""",
             inputs=[
                 {"name": "vault_data", "type": "str", "description": "JSON data about vault structure"}
             ],
@@ -185,21 +183,34 @@ Ensure the plan is practical and maintains vault usability during transition."""
         # Get raw structure data
         structure_data = self.vault_tools.get_vault_structure(include_content, max_depth, file_types)
         
-        # Get AI analysis of the structure
-        analysis_result = self.structure_agent(
-            inputs={
-                "vault_data": str(structure_data)
+        # Try to get AI analysis of the structure
+        ai_analysis = {}
+        try:
+            analysis_result = self.structure_agent(
+                inputs={
+                    "vault_data": str(structure_data)
+                }
+            )
+            
+            # Safely extract analysis fields
+            ai_analysis = {
+                "analysis": getattr(analysis_result.content, 'analysis', 'Analysis unavailable'),
+                "recommendations": getattr(analysis_result.content, 'recommendations', 'Recommendations unavailable'),
+                "organization_score": str(getattr(analysis_result.content, 'organization_score', 'N/A'))
             }
-        )
+        except Exception as e:
+            # Log the error but don't fail the entire request
+            print(f"AI analysis failed: {str(e)}")
+            ai_analysis = {
+                "analysis": "AI analysis temporarily unavailable",
+                "recommendations": "AI recommendations temporarily unavailable", 
+                "organization_score": "N/A"
+            }
         
         # Combine raw data with AI insights
         return {
             "raw_structure": structure_data,
-            "ai_analysis": {
-                "analysis": analysis_result.content.analysis,
-                "recommendations": analysis_result.content.recommendations,
-                "organization_score": analysis_result.content.organization_score
-            }
+            "ai_analysis": ai_analysis
         }
     
     def perform_file_operations(self, user_request: str, vault_context: Optional[str] = None) -> Dict[str, Any]:

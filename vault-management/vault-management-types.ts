@@ -37,6 +37,10 @@ export interface VaultStructureResponse {
   structure: VaultFolderInfo;
   recent_files: VaultFileInfo[];
   orphaned_files: VaultFileInfo[];
+  // AI Analysis fields
+  analysis?: string;
+  recommendations?: string;
+  organization_score?: string;
 }
 
 // === FILE OPERATION TYPES ===

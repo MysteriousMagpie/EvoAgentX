@@ -494,7 +494,7 @@ async def get_vault_structure(request: VaultStructureRequest):
         
         # Convert the response to match the expected schema format
         vault_structure = structure_data["raw_structure"]
-        ai_analysis = structure_data["ai_analysis"]
+        ai_analysis = structure_data.get("ai_analysis", {})
         
         # Build response according to schema
         return VaultStructureResponse(
@@ -504,7 +504,10 @@ async def get_vault_structure(request: VaultStructureRequest):
             total_size=vault_structure.get("total_size", 0),
             structure=vault_structure.get("structure", {}),
             recent_files=vault_structure.get("recent_files", []),
-            orphaned_files=vault_structure.get("orphaned_files", [])
+            orphaned_files=vault_structure.get("orphaned_files", []),
+            analysis=ai_analysis.get("analysis"),
+            recommendations=ai_analysis.get("recommendations"),
+            organization_score=ai_analysis.get("organization_score")
         )
         
     except Exception as e:
