@@ -39,7 +39,7 @@ async def handle_errors(func):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@obsidian_router.post("/chat", response_model=APIResponse[ChatResponse])
+@obsidian_router.post("/chat", response_model=APIResponse)
 async def chat_with_agent(request: ChatRequest):
     """
     Main chat endpoint for VaultPilot conversations
@@ -53,39 +53,22 @@ async def chat_with_agent(request: ChatRequest):
         
         # TODO: Implement your chat logic here
         # Example implementation:
-        agent_response = await agent_manager.process_chat(
-            message=request.message,
-            conversation_id=conversation_id,
-            vault_context=request.vault_context,
-            agent_id=request.agent_id,
-            mode=request.mode
-        )
+        agent_response = await agent_manager.process_chat(request)
         
-        response = ChatResponse(
-            response=agent_response["response"],
-            conversation_id=conversation_id,
-            agent_used=agent_response.get("agent_used", "default"),
-            metadata=agent_response.get("metadata", {})
-        )
-        
-        return APIResponse(success=True, data=response)
+        return APIResponse(success=True, data=agent_response)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chat processing failed: {str(e)}")
 
 
-@obsidian_router.post("/conversation/history", response_model=APIResponse[ConversationHistory])
+@obsidian_router.post("/conversation/history", response_model=APIResponse)
 async def get_conversation_history(request: ConversationHistoryRequest):
     """
     Retrieve conversation history for a specific conversation
     """
     try:
         # TODO: Implement conversation history retrieval
-        history = await agent_manager.get_conversation_history(
-            conversation_id=request.conversation_id,
-            limit=request.limit,
-            include_messages=request.include_messages
-        )
+        history = await agent_manager.get_conversation_history(request.conversation_id)
         
         if not history:
             raise HTTPException(status_code=404, detail="Conversation not found")
@@ -118,7 +101,7 @@ async def delete_conversation(conversation_id: str):
         raise HTTPException(status_code=500, detail=f"Failed to delete conversation: {str(e)}")
 
 
-@obsidian_router.post("/copilot/complete", response_model=APIResponse[CopilotResponse])
+@obsidian_router.post("/copilot/complete", response_model=APIResponse)
 async def get_copilot_completion(request: CopilotRequest):
     """
     Provide intelligent text completion for VaultPilot users
@@ -134,20 +117,9 @@ async def get_copilot_completion(request: CopilotRequest):
             )
         
         # TODO: Implement your copilot completion logic
-        completion_result = await copilot_engine.generate_completion(
-            text=request.text,
-            cursor_position=request.cursor_position,
-            file_type=request.file_type,
-            context=request.context
-        )
+        completion_result = await copilot_engine.get_completion(request)
         
-        response = CopilotResponse(
-            completion=completion_result["completion"],
-            confidence=completion_result["confidence"],
-            suggestions=completion_result.get("suggestions", [])
-        )
-        
-        return APIResponse(success=True, data=response)
+        return APIResponse(success=True, data=completion_result)
         
     except HTTPException:
         raise
@@ -155,7 +127,7 @@ async def get_copilot_completion(request: CopilotRequest):
         raise HTTPException(status_code=500, detail=f"Copilot completion failed: {str(e)}")
 
 
-@obsidian_router.post("/workflow", response_model=APIResponse[WorkflowResponse])
+@obsidian_router.post("/workflow", response_model=APIResponse)
 async def execute_workflow(request: WorkflowRequest, background_tasks: BackgroundTasks):
     """
     Execute AI workflows for complex task automation
@@ -166,40 +138,22 @@ async def execute_workflow(request: WorkflowRequest, background_tasks: Backgroun
         execution_id = str(uuid.uuid4())
         
         # TODO: Implement your workflow execution logic
-        workflow_result = await workflow_processor.execute_workflow(
-            goal=request.goal,
-            context=request.context,
-            vault_content=request.vault_content,
-            constraints=request.constraints,
-            execution_id=execution_id
-        )
+        workflow_result = await workflow_processor.execute_workflow(request)
         
-        response = WorkflowResponse(
-            goal=request.goal,
-            output=workflow_result["output"],
-            result=workflow_result.get("result"),
-            steps_taken=workflow_result.get("steps_taken", []),
-            artifacts=workflow_result.get("artifacts", []),
-            execution_time=workflow_result.get("execution_time", 0.0),
-            execution_id=execution_id,
-            status=workflow_result.get("status", "completed"),
-            graph=workflow_result.get("graph")
-        )
-        
-        return APIResponse(success=True, data=response)
+        return APIResponse(success=True, data=workflow_result)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Workflow execution failed: {str(e)}")
 
 
-@obsidian_router.get("/agents", response_model=APIResponse[List[Agent]])
+@obsidian_router.get("/agents", response_model=APIResponse)
 async def get_available_agents():
     """
     Get list of available AI agents
     """
     try:
-        # TODO: Implement agent listing
-        agents = await agent_manager.get_available_agents()
+        # Get agents from agent manager
+        agents = await agent_manager.get_all_agents()
         
         return APIResponse(success=True, data=agents)
         
@@ -207,19 +161,14 @@ async def get_available_agents():
         raise HTTPException(status_code=500, detail=f"Failed to get agents: {str(e)}")
 
 
-@obsidian_router.post("/agents/create", response_model=APIResponse[Agent])
+@obsidian_router.post("/agents/create", response_model=APIResponse)
 async def create_agent(request: AgentCreateRequest):
     """
     Create a new AI agent
     """
     try:
         # TODO: Implement agent creation
-        agent = await agent_manager.create_agent(
-            name=request.name,
-            description=request.description,
-            system_prompt=request.system_prompt,
-            capabilities=request.capabilities
-        )
+        agent = await agent_manager.create_agent(request)
         
         return APIResponse(success=True, data=agent)
         
@@ -227,18 +176,14 @@ async def create_agent(request: AgentCreateRequest):
         raise HTTPException(status_code=500, detail=f"Failed to create agent: {str(e)}")
 
 
-@obsidian_router.post("/agent/execute", response_model=APIResponse[dict])
+@obsidian_router.post("/agent/execute", response_model=APIResponse)
 async def execute_agent(request: AgentExecuteRequest):
     """
     Execute a specific agent with a task
     """
     try:
         # TODO: Implement agent execution
-        result = await agent_manager.execute_agent(
-            agent_id=request.agent_id,
-            task=request.task,
-            context=request.context
-        )
+        result = await agent_manager.execute_agent(request)
         
         return APIResponse(success=True, data=result)
         
@@ -246,7 +191,7 @@ async def execute_agent(request: AgentExecuteRequest):
         raise HTTPException(status_code=500, detail=f"Agent execution failed: {str(e)}")
 
 
-@obsidian_router.post("/vault/context", response_model=APIResponse[VaultContextResponse])
+@obsidian_router.post("/vault/context", response_model=APIResponse)
 async def analyze_vault_context(request: VaultContextRequest):
     """
     Analyze vault content for insights and connections
@@ -255,27 +200,17 @@ async def analyze_vault_context(request: VaultContextRequest):
     """
     try:
         # TODO: Implement vault analysis
-        analysis_result = await vault_analyzer.analyze_vault(
-            content=request.content,
-            file_paths=request.file_paths,
-            analysis_type=request.analysis_type
-        )
+        # For now, use a placeholder vault path or extract from request
+        vault_path = getattr(request, 'vault_path', '/default/vault/path')
+        analysis_result = await vault_analyzer.analyze_vault(vault_path)
         
-        response = VaultContextResponse(
-            analysis=analysis_result["analysis"],
-            insights=analysis_result.get("insights", []),
-            connections=analysis_result.get("connections", []),
-            recommendations=analysis_result.get("recommendations", []),
-            metadata=analysis_result.get("metadata", {})
-        )
-        
-        return APIResponse(success=True, data=response)
+        return APIResponse(success=True, data=analysis_result)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Vault analysis failed: {str(e)}")
 
 
-@obsidian_router.post("/planning/tasks", response_model=APIResponse[TaskPlanningResponse])
+@obsidian_router.post("/planning/tasks", response_model=APIResponse)
 async def plan_tasks(request: TaskPlanningRequest):
     """
     Generate task plans and project timelines
@@ -284,26 +219,15 @@ async def plan_tasks(request: TaskPlanningRequest):
     """
     try:
         # TODO: Implement task planning
-        planning_result = await workflow_processor.plan_tasks(
-            goal=request.goal,
-            timeframe=request.timeframe,
-            context=request.context,
-            constraints=request.constraints
-        )
+        planning_result = await workflow_processor.plan_tasks(request)
         
-        response = TaskPlanningResponse(
-            plan=planning_result["plan"],
-            timeline=planning_result["timeline"],
-            milestones=planning_result.get("milestones", [])
-        )
-        
-        return APIResponse(success=True, data=response)
+        return APIResponse(success=True, data=planning_result)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Task planning failed: {str(e)}")
 
 
-@obsidian_router.post("/intelligence/parse", response_model=APIResponse[IntelligenceParseResponse])
+@obsidian_router.post("/intelligence/parse", response_model=APIResponse)
 async def parse_intelligence(request: IntelligenceParseRequest):
     """
     Parse text for intent, entities, and context
@@ -312,10 +236,7 @@ async def parse_intelligence(request: IntelligenceParseRequest):
     """
     try:
         # TODO: Implement intelligence parsing
-        parse_result = await agent_manager.parse_intelligence(
-            text=request.text,
-            parse_type=request.parse_type
-        )
+        parse_result = await agent_manager.parse_intelligence(request)
         
         response = IntelligenceParseResponse(
             intent=parse_result["intent"],
@@ -330,19 +251,14 @@ async def parse_intelligence(request: IntelligenceParseRequest):
         raise HTTPException(status_code=500, detail=f"Intelligence parsing failed: {str(e)}")
 
 
-@obsidian_router.post("/memory/update", response_model=APIResponse[dict])
+@obsidian_router.post("/memory/update", response_model=APIResponse)
 async def update_memory(request: MemoryUpdateRequest):
     """
     Update agent memory with new information
     """
     try:
         # TODO: Implement memory update
-        result = await agent_manager.update_memory(
-            user_id=request.user_id,
-            information=request.information,
-            context=request.context,
-            importance=request.importance
-        )
+        result = await agent_manager.update_memory(request)
         
         return APIResponse(success=True, data=result)
         
@@ -350,31 +266,31 @@ async def update_memory(request: MemoryUpdateRequest):
         raise HTTPException(status_code=500, detail=f"Memory update failed: {str(e)}")
 
 
-# Error handlers
-@obsidian_router.exception_handler(HTTPException)
-async def http_exception_handler(request, exc):
-    """Handle HTTP exceptions with proper formatting"""
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "error": exc.detail,
-            "timestamp": datetime.now().isoformat(),
-            "url": str(request.url),
-            "method": request.method
-        }
-    )
+# Error handlers - Add these to your main FastAPI app, not the router
+# @app.exception_handler(HTTPException)
+# async def http_exception_handler(request, exc):
+#     """Handle HTTP exceptions with proper formatting"""
+#     return JSONResponse(
+#         status_code=exc.status_code,
+#         content={
+#             "error": exc.detail,
+#             "timestamp": datetime.now().isoformat(),
+#             "url": str(request.url),
+#             "method": request.method
+#         }
+#     )
 
 
-@obsidian_router.exception_handler(422)
-async def validation_exception_handler(request, exc):
-    """Handle validation errors with VaultPilot-compatible format"""
-    return JSONResponse(
-        status_code=422,
-        content={
-            "error": "Validation Error",
-            "message": "The request data doesn't match the expected format",
-            "validation_errors": exc.detail,
-            "url": str(request.url),
-            "method": request.method
-        }
-    )
+# @app.exception_handler(422)
+# async def validation_exception_handler(request, exc):
+#     """Handle validation errors with VaultPilot-compatible format"""
+#     return JSONResponse(
+#         status_code=422,
+#         content={
+#             "error": "Validation Error",
+#             "message": "The request data doesn't match the expected format",
+#             "validation_errors": exc.detail,
+#             "url": str(request.url),
+#             "method": request.method
+#         }
+#     )

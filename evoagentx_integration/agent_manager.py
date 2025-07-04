@@ -418,3 +418,80 @@ class AgentManager:
         return """You are a Creative Writing Assistant specialized in storytelling and narrative development.
         You help users with creative writing, story development, character creation, and plot assistance.
         Focus on enhancing creativity while maintaining narrative coherence."""
+    
+    async def process_chat(self, request: ChatRequest) -> ChatResponse:
+        """Process a chat request with an agent"""
+        try:
+            # Auto-select agent if not specified
+            if request.agent_id:
+                agent = await self.get_agent(request.agent_id)
+                if not agent:
+                    raise ValueError(f"Agent {request.agent_id} not found")
+            else:
+                # Auto-select the best agent for this task
+                agent = await self.auto_select_agent(request.message, request.vault_context)
+                if not agent:
+                    # Default to the first available agent
+                    agents = await self.get_all_agents()
+                    agent = agents[0] if agents else None
+                    
+            if not agent:
+                raise ValueError("No agents available")
+            
+            # Generate response
+            response_text = await self._generate_agent_response(agent, request)
+            
+            return ChatResponse(
+                response=response_text,
+                conversation_id=request.conversation_id or str(uuid.uuid4()),
+                agent_name=agent.name
+            )
+        except Exception as e:
+            return ChatResponse(
+                response=f"Sorry, I encountered an error: {str(e)}",
+                conversation_id=request.conversation_id or str(uuid.uuid4()),
+                agent_name="System"
+            )
+
+    async def get_conversation_history(self, conversation_id: str) -> Optional[Dict[str, Any]]:
+        """Get conversation history - placeholder implementation"""
+        # TODO: Implement conversation history storage
+        return {
+            "conversation_id": conversation_id,
+            "messages": []
+        }
+
+    async def delete_conversation(self, conversation_id: str) -> bool:
+        """Delete conversation - placeholder implementation"""
+        # TODO: Implement conversation deletion
+        return True
+
+    async def execute_agent(self, request: AgentExecuteRequest) -> Any:
+        """Execute a specific agent with a task"""
+        agent = await self.get_agent(request.agent_id)
+        if not agent:
+            raise ValueError(f"Agent {request.agent_id} not found")
+        
+        # Convert to chat request for processing
+        chat_request = ChatRequest(
+            message=request.task,
+            agent_id=request.agent_id,
+            vault_context=request.context
+        )
+        
+        return await self.process_chat(chat_request)
+
+    async def parse_intelligence(self, request: Any) -> Any:
+        """Parse intelligence request - placeholder implementation"""
+        # TODO: Implement intelligence parsing
+        return {
+            "intent": "general_assistance",
+            "confidence": 0.8,
+            "entities": [],
+            "suggestions": []
+        }
+
+    async def update_memory(self, request: Any) -> None:
+        """Update agent memory - placeholder implementation"""
+        # TODO: Implement memory updates
+        pass
