@@ -175,6 +175,12 @@ export interface FileOperationState {
 
 // === MODAL PROPS TYPES ===
 
+// Basic App interface (would normally come from Obsidian package)
+interface App {
+  vault: any;
+  workspace: any;
+}
+
 export interface VaultModalProps {
   app: App;
   plugin: VaultPilotPlugin;
@@ -217,7 +223,14 @@ export type VaultManagementFeature =
   | 'backup';
 
 export interface FeatureAvailability {
-  [K in VaultManagementFeature]: boolean;
+  vaultStructure: boolean;
+  smartSearch: boolean;
+  fileOperations: boolean;
+  batchOperations: boolean;
+  vaultOrganization: boolean;
+  realTimeSync: boolean;
+  backupRestore: boolean;
+  healthCheck: boolean;
 }
 
 export interface VaultStatistics {

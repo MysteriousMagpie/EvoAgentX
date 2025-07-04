@@ -1,5 +1,5 @@
 // parser.test.ts
-import { handleMessage, updateMemory, setOpenAIClient } from './parser';
+import { handleMessage, updateMemory, setOpenAIClient } from '../parsers/intelligenceParser';
 
 const mockedCreate = jest.fn();
 const mockClient = { chat: { completions: { create: mockedCreate } } } as any;

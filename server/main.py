@@ -13,6 +13,7 @@ from server.api.run import router as run_router
 from server.api.calendar import calendar_router
 from server.api.obsidian import router as obsidian_router
 from server.api.planner import planner_router
+from server.api.workflow import router as workflow_router
 from server.core.websocket_manager import manager
 from server.core.obsidian_websocket import obsidian_ws_manager
 
@@ -116,6 +117,7 @@ app.include_router(run_router)
 app.include_router(calendar_router)
 app.include_router(obsidian_router)
 app.include_router(planner_router)
+app.include_router(workflow_router)
 
 status_router = APIRouter()
 

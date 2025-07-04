@@ -6,12 +6,14 @@
 import {
   VaultStructureRequest,
   VaultStructureResponse,
+  VaultFileInfo,
   FileOperationRequest,
   FileOperationResponse,
   BatchFileOperationRequest,
   BatchFileOperationResponse,
   VaultSearchRequest,
   VaultSearchResponse,
+  VaultSearchResult,
   VaultOrganizationRequest,
   VaultOrganizationResponse,
   VaultBackupRequest,
@@ -115,7 +117,7 @@ export class VaultManagementExtensions implements VaultManagementAPI {
           this.validateFileOperationRequest(op);
         } catch (error) {
           throw new VaultManagementError(
-            `Invalid operation at index ${index}: ${error.message}`,
+            `Invalid operation at index ${index}: ${error instanceof Error ? error.message : String(error)}`,
             'INVALID_BATCH_OPERATION',
             'batch-operations'
           );

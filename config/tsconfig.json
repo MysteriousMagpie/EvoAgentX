@@ -11,11 +11,11 @@
     "allowImportingTsExtensions": true
   },
   "include": [
-    "typescript/**/*.ts",
-    "vault-management/**/*.ts",
-    "intelligence-parser/**/*.ts"
+    "../typescript/**/*.ts",
+    "../vault-management/**/*.ts",
+    "../intelligence-parser/**/*.ts"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["../node_modules", "../build", "../venv"]
 }
 // This configuration file is set up to compile TypeScript files to ES2020 JavaScript.
 // It uses ESNext modules and has strict type checking enabled.

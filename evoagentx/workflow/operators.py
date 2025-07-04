@@ -64,17 +64,62 @@ class Operator(BaseModule):
             return self.execute(*args, **kwargs)
     
     def execute(self, *args, **kwargs) -> dict:
-        raise NotImplementedError(f"The execute function for {type(self).__name__} is not implemented!")
+        """
+        Synchronous execution of the operator.
+        Default implementation calls the LLM with provided prompt and inputs.
+        """
+        inputs = kwargs.get('inputs', {})
+        prompt = self.get_prompt(**kwargs)
+        
+        if not prompt:
+            raise ValueError(f"No prompt provided for {type(self).__name__}")
+            
+        # Format the prompt with provided inputs
+        formatted_prompt = prompt.format(**inputs) if inputs else prompt
+        
+        try:
+            response = self.llm.generate(prompt=formatted_prompt, parser=self.outputs_format)
+            # Handle both single and list responses
+            if isinstance(response, list):
+                return response[0].get_structured_data() if response else {"error": "Empty response", "response": ""}
+            else:
+                return response.get_structured_data()
+        except Exception as e:
+            logger.error(f"Error executing {type(self).__name__}: {e}")
+            return {"error": str(e), "response": ""}
     
     async def async_execute(self, *args, **kwargs) -> dict:
-        raise NotImplementedError(f"The execute function for {type(self).__name__} is not implemented!")
+        """
+        Asynchronous execution of the operator.
+        Default implementation calls the LLM asynchronously with provided prompt and inputs.
+        """
+        inputs = kwargs.get('inputs', {})
+        prompt = self.get_prompt(**kwargs)
+        
+        if not prompt:
+            raise ValueError(f"No prompt provided for {type(self).__name__}")
+            
+        # Format the prompt with provided inputs
+        formatted_prompt = prompt.format(**inputs) if inputs else prompt
+        
+        try:
+            # Use async_generate method
+            response = await self.llm.async_generate(prompt=formatted_prompt, parser=self.outputs_format)
+            # Handle both single and list responses
+            if isinstance(response, list):
+                return response[0].get_structured_data() if response else {"error": "Empty response", "response": ""}
+            else:
+                return response.get_structured_data()
+        except Exception as e:
+            logger.error(f"Error executing {type(self).__name__} async: {e}")
+            return {"error": str(e), "response": ""}
     
-    def save_module(self, path: str, ignore: List[str] = [], **kwargs)-> str:
+    def save_module(self, path: str, ignore: List[str] = [], **kwargs) -> str:
         ignore_fields = self._save_ignore_fields + ignore
-        super().save_module(path=path, ignore=ignore_fields, **kwargs)
+        return super().save_module(path=path, ignore=ignore_fields, **kwargs)
 
     def get_prompt(self, **kwargs) -> str:
-        return self.prompt 
+        return self.prompt or "" 
     
     def set_prompt(self, prompt: str):
         self.prompt = prompt
@@ -103,13 +148,21 @@ class Custom(Operator):
     def execute(self, input: str, instruction: str) -> dict: 
         prompt = instruction + input
         response = self.llm.generate(prompt=prompt, parser=self.outputs_format, parse_mode="str")
-        output =response.get_structured_data()
+        # Handle both single and list responses
+        if isinstance(response, list):
+            output = response[0].get_structured_data() if response else {"response": ""}
+        else:
+            output = response.get_structured_data()
         return output 
     
     async def async_execute(self, input: str, instruction: str) -> dict:
         prompt = instruction + input
         response = await self.llm.async_generate(prompt=prompt, parser=self.outputs_format, parse_mode="str")
-        output = response.get_structured_data()
+        # Handle both single and list responses
+        if isinstance(response, list):
+            output = response[0].get_structured_data() if response else {"response": ""}
+        else:
+            output = response.get_structured_data()
         return output 
 
 
@@ -129,15 +182,23 @@ class AnswerGenerate(Operator):
     
     def execute(self, input: str) -> dict:
         # prompt = ANSWER_GENERATION_PROMPT.format(input=input)
-        prompt = self.prompt.format(input=input)
+        prompt = (self.prompt or "").format(input=input)
         response = self.llm.generate(prompt=prompt, parser=self.outputs_format, parse_mode="xml")
-        return response.get_structured_data()
+        # Handle both single and list responses
+        if isinstance(response, list):
+            return response[0].get_structured_data() if response else {"thought": "", "answer": ""}
+        else:
+            return response.get_structured_data()
     
     async def async_execute(self, input: str) -> dict:
         # prompt = ANSWER_GENERATION_PROMPT.format(input=input)
-        prompt = self.prompt.format(input=input)
+        prompt = (self.prompt or "").format(input=input)
         response = await self.llm.async_generate(prompt=prompt, parser=self.outputs_format, parse_mode="xml")
-        return response.get_structured_data()
+        # Handle both single and list responses
+        if isinstance(response, list):
+            return response[0].get_structured_data() if response else {"thought": "", "answer": ""}
+        else:
+            return response.get_structured_data()
     
 
 class ScEnsembleOutput(OperatorOutput):

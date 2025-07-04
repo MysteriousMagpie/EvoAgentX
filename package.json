@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "test": "jest"
+    "test": "jest --config=config/jest.config.js",
+    "lint": "eslint --config=config/eslint.config.js",
+    "build": "tsc --project config/tsconfig.json"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

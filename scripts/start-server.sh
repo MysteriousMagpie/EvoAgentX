@@ -1,6 +1,19 @@
 #!/bin/bash
 
-# # Check if port is already in use and automatically kill processes
+# EvoAgentX Server Startup Script
+# This script starts the FastAPI server with the planner functionality
+# It automatically kills any existing processes on the target port
+
+# Default port, can be overridden with: ./start-server.sh 3000
+PORT=${1:-8000}
+
+echo "🚀 Starting EvoAgentX Server..."
+echo "📍 Server will be available at: http://localhost:$PORT"
+echo "📋 Planner API: http://localhost:$PORT/planner/planday"
+echo "🔍 API Documentation: http://localhost:$PORT/docs"
+echo ""
+
+# Check if port is already in use and automatically kill processes
 if lsof -Pi :$PORT -sTCP:LISTEN -t >/dev/null ; then
     echo "⚠️  Port $PORT is already in use!"
     echo "🔄 Automatically stopping existing processes on port $PORT..."
@@ -35,37 +48,6 @@ if lsof -Pi :$PORT -sTCP:LISTEN -t >/dev/null ; then
     fi
 else
     echo "✅ Port $PORT is available!"
-fiartup Script
-# This script starts the FastAPI server with the planner functionality
-# It automatically kills any existing processes on the target port
-
-# Default port, can be overridden with: ./start-server.sh 3000
-PORT=${1:-8000}
-
-echo "🚀 Starting EvoAgentX Server..."
-echo "📍 Server will be available at: http://localhost:$PORT"
-echo "📋 Planner API: http://localhost:$PORT/planner/planday"
-echo "🔍 API Documentation: http://localhost:$PORT/docs"
-echo ""
-
-# Check if port is already in use and automatically kill processes
-if lsof -Pi :$PORT -sTCP:LISTEN -t >/dev/null ; then
-    echo "⚠️  Port $PORT is already in use!"
-    echo "� Automatically stopping existing processes on port $PORT..."
-    
-    # Kill processes using the port
-    lsof -ti:$PORT | xargs kill -9 2>/dev/null
-    
-    # Wait a moment for processes to fully terminate
-    sleep 2
-    
-    # Verify port is now free
-    if lsof -Pi :$PORT -sTCP:LISTEN -t >/dev/null ; then
-        echo "❌ Failed to free port $PORT. Please manually stop the processes."
-        exit 1
-    else
-        echo "✅ Port $PORT is now free!"
-    fi
 fi
 
 # Activate virtual environment if it exists
@@ -80,3 +62,4 @@ fi
 # Start the server
 echo "🎯 Starting server on port $PORT..."
 python -m uvicorn server.main:sio_app --host 0.0.0.0 --port $PORT --reload
+echo "✅ Server started!"

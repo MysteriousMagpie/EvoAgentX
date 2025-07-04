@@ -24,10 +24,86 @@ class ActionGraph(BaseModule):
     #     return self.execute(*args, **kwargs)
     
     def execute(self, *args, **kwargs) -> dict:
-        raise NotImplementedError(f"The execute function for {type(self).__name__} is not implemented!")
+        """
+        Execute the action graph.
+        
+        Basic implementation that executes operators in sequence.
+        Subclasses should override this for custom execution logic.
+        """
+        try:
+            logger.info(f"Executing ActionGraph: {self.name}")
+            
+            # Get all operators from extra fields
+            operators = {}
+            if hasattr(self, '__pydantic_extra__') and self.__pydantic_extra__:
+                for extra_name, extra_value in self.__pydantic_extra__.items():
+                    if isinstance(extra_value, Operator):
+                        operators[extra_name] = extra_value
+            
+            if not operators:
+                logger.warning("No operators found in ActionGraph")
+                return {"result": "No operators to execute", "status": "warning"}
+            
+            results = {}
+            for operator_name, operator in operators.items():
+                logger.info(f"Executing operator: {operator_name}")
+                try:
+                    result = operator.execute(*args, **kwargs)
+                    results[operator_name] = result
+                except Exception as e:
+                    logger.error(f"Error executing operator {operator_name}: {e}")
+                    results[operator_name] = {"error": str(e)}
+            
+            return {
+                "status": "completed",
+                "results": results,
+                "graph_name": self.name
+            }
+            
+        except Exception as e:
+            logger.error(f"Error executing ActionGraph {self.name}: {e}")
+            return {"status": "error", "error": str(e), "graph_name": self.name}
     
-    def async_execute(self, *args, **kwargs) -> dict:
-        raise NotImplementedError(f"The async_execute function for {type(self).__name__} is not implemented!")
+    async def async_execute(self, *args, **kwargs) -> dict:
+        """
+        Asynchronously execute the action graph.
+        
+        Basic implementation that executes operators in sequence asynchronously.
+        Subclasses should override this for custom async execution logic.
+        """
+        try:
+            logger.info(f"Async executing ActionGraph: {self.name}")
+            
+            # Get all operators from extra fields
+            operators = {}
+            if hasattr(self, '__pydantic_extra__') and self.__pydantic_extra__:
+                for extra_name, extra_value in self.__pydantic_extra__.items():
+                    if isinstance(extra_value, Operator):
+                        operators[extra_name] = extra_value
+            
+            if not operators:
+                logger.warning("No operators found in ActionGraph")
+                return {"result": "No operators to execute", "status": "warning"}
+            
+            results = {}
+            for operator_name, operator in operators.items():
+                logger.info(f"Async executing operator: {operator_name}")
+                try:
+                    result = await operator.async_execute(*args, **kwargs)
+                    results[operator_name] = result
+                except Exception as e:
+                    logger.error(f"Error async executing operator {operator_name}: {e}")
+                    results[operator_name] = {"error": str(e)}
+            
+            return {
+                "status": "completed",
+                "results": results,
+                "graph_name": self.name
+            }
+            
+        except Exception as e:
+            logger.error(f"Error async executing ActionGraph {self.name}: {e}")
+            return {"status": "error", "error": str(e), "graph_name": self.name}
     
     def get_graph_info(self, **kwargs) -> dict:
         """
@@ -35,9 +111,10 @@ class ActionGraph(BaseModule):
         """
         operators = {}
         # the extra fields are the fields that are not defined in the Pydantic model 
-        for extra_name, extra_value in self.__pydantic_extra__.items():
-            if isinstance(extra_value, Operator):
-                operators[extra_name] = extra_value
+        if hasattr(self, '__pydantic_extra__') and self.__pydantic_extra__:
+            for extra_name, extra_value in self.__pydantic_extra__.items():
+                if isinstance(extra_value, Operator):
+                    operators[extra_name] = extra_value
 
         config = {
             "class_name": self.__class__.__name__,

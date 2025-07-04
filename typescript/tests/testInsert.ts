@@ -1,6 +1,6 @@
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { initDatabase, insertStateLog } from './db.ts';
+import { initDatabase, insertStateLog } from '../db.ts';
 
 // Initialize the database and tables
 initDatabase();

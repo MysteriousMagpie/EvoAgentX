@@ -211,16 +211,126 @@ class Action(BaseModule):
             If `return_prompt` is False, the method returns a Parser object containing the structured result of the action.
             If `return_prompt` is True, the method returns a tuple containing the Parser object and the complete prompt passed to the LLM.
         """
-        raise NotImplementedError(f"`execute` function of {type(self).__name__} is not implemented!")
+        if llm is None:
+            raise ValueError("LLM must be provided for action execution")
+        
+        # Get the prompt template
+        prompt_template = self.prompt_template
+        if not prompt_template:
+            raise ValueError(f"No prompt template provided for action {self.name}")
+        
+        # Format the prompt with inputs
+        inputs = inputs or {}
+        try:
+            formatted_prompt = prompt_template.format(**inputs)
+        except KeyError as e:
+            # Handle missing keys by setting them to empty string
+            missing_key = str(e).strip("'")
+            inputs[missing_key] = ""
+            formatted_prompt = prompt_template.format(**inputs)
+        
+        # Execute with LLM
+        try:
+            result = llm.generate(
+                prompt=formatted_prompt,
+                system_message=sys_msg,
+                parser=self.outputs_format
+            )
+            
+            # Handle both single and list responses
+            if isinstance(result, list):
+                parsed_result = result[0] if result else None
+            else:
+                parsed_result = result
+                
+            if return_prompt:
+                return (parsed_result, formatted_prompt)
+            return parsed_result
+            
+        except Exception as e:
+            raise RuntimeError(f"Error executing action {self.name}: {e}")
+        
+        # Get the prompt template
+        prompt_template = self.prompt_template
+        if not prompt_template:
+            raise ValueError(f"No prompt template provided for action {self.name}")
+        
+        # Format the prompt with inputs
+        inputs = inputs or {}
+        try:
+            formatted_prompt = prompt_template.format(**inputs)
+        except KeyError as e:
+            # Handle missing keys by setting them to empty string
+            missing_key = str(e).strip("'")
+            inputs[missing_key] = ""
+            formatted_prompt = prompt_template.format(**inputs)
+        
+        # Execute with LLM
+        try:
+            result = llm.generate(
+                prompt=formatted_prompt,
+                system_message=sys_msg,
+                parser=self.outputs_format
+            )
+            
+            # Handle both single and list responses
+            if isinstance(result, list):
+                parsed_result = result[0] if result else None
+            else:
+                parsed_result = result
+                
+            if return_prompt:
+                return (parsed_result, formatted_prompt)
+            return parsed_result
+            
+        except Exception as e:
+            raise RuntimeError(f"Error executing action {self.name}: {e}")
 
     async def async_execute(self, llm: Optional[BaseLLM] = None, inputs: Optional[dict] = None, sys_msg: Optional[str]=None, return_prompt: bool = False, **kwargs) -> Optional[Union[Parser, Tuple[Parser, str]]]:
         """
-        Asynchronous execution of the action.
+        Default implementation for asynchronous action execution.
         
-        This method is the asynchronous counterpart of the `execute` method.
-        It allows the action to be executed asynchronously using an LLM.
+        This method provides a basic async implementation for executing actions with LLMs.
+        Actions can override this method to implement custom async behavior.
         """
-        raise NotImplementedError(f"`async_execute` function of {type(self).__name__} is not implemented!")
+        if llm is None:
+            raise ValueError("LLM must be provided for action execution")
+        
+        # Get the prompt template
+        prompt_template = self.prompt_template
+        if not prompt_template:
+            raise ValueError(f"No prompt template provided for action {self.name}")
+        
+        # Format the prompt with inputs
+        inputs = inputs or {}
+        try:
+            formatted_prompt = prompt_template.format(**inputs)
+        except KeyError as e:
+            # Handle missing keys by setting them to empty string
+            missing_key = str(e).strip("'")
+            inputs[missing_key] = ""
+            formatted_prompt = prompt_template.format(**inputs)
+        
+        # Execute with LLM
+        try:
+            result = await llm.async_generate(
+                prompt=formatted_prompt,
+                system_message=sys_msg,
+                parser=self.outputs_format
+            )
+            
+            # Handle both single and list responses
+            if isinstance(result, list):
+                parsed_result = result[0] if result else None
+            else:
+                parsed_result = result
+                
+            if return_prompt:
+                return (parsed_result, formatted_prompt)
+            return parsed_result
+            
+        except Exception as e:
+            raise RuntimeError(f"Error executing action {self.name} async: {e}")
 
 class ContextExtraction(Action):
     """Action for extracting structured inputs from context.
