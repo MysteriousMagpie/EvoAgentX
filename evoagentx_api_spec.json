@@ -1,0 +1,317 @@
+{
+  "evoagentx_api_spec": {
+    "version": "1.0.0",
+    "last_updated": "2025-01-05",
+    "base_url": "http://localhost:8000",
+    "websocket_url": "ws://localhost:8000/ws/obsidian",
+    "cors_enabled": true,
+    "content_type": "application/json",
+    
+    "health_check": {
+      "endpoint": "/status",
+      "method": "GET",
+      "response": {
+        "status": "string",
+        "timestamp": "string"
+      }
+    },
+
+    "core_endpoints": {
+      "agent_chat": {
+        "endpoint": "/api/obsidian/chat",
+        "method": "POST",
+        "request": {
+          "message": "string (required)",
+          "conversation_id": "string | null",
+          "vault_context": "string | null", 
+          "mode": "ask | agent"
+        },
+        "response": {
+          "response": "string",
+          "conversation_id": "string",
+          "agent_name": "string",
+          "timestamp": "string",
+          "metadata": {
+            "token_usage": "number",
+            "model": "string"
+          }
+        }
+      },
+
+      "copilot_completion": {
+        "endpoint": "/api/obsidian/copilot/complete",
+        "method": "POST",
+        "request": {
+          "text": "string (required)",
+          "cursor_position": "number (required)",
+          "file_type": "string",
+          "vault_context": "string | null"
+        },
+        "response": {
+          "completion": "string",
+          "suggestions": "string[]",
+          "confidence": "number"
+        }
+      },
+
+      "workflow_execution": {
+        "endpoint": "/api/obsidian/workflow", 
+        "method": "POST",
+        "request": {
+          "goal": "string (required)",
+          "context": "string | null",
+          "vault_content": "string | null"
+        },
+        "response": {
+          "workflow_id": "string",
+          "result": "string", 
+          "artifacts": "string[]",
+          "execution_time": "number"
+        }
+      },
+
+      "agent_management": {
+        "list_agents": {
+          "endpoint": "/api/obsidian/agents",
+          "method": "GET",
+          "response": [{
+            "id": "string",
+            "name": "string",
+            "description": "string", 
+            "capabilities": "string[]"
+          }]
+        },
+        "create_agent": {
+          "endpoint": "/api/obsidian/agents/create",
+          "method": "POST",
+          "request": {
+            "name": "string (required)",
+            "description": "string (required)",
+            "instructions": "string (required)"
+          }
+        }
+      },
+
+      "vault_analysis": {
+        "endpoint": "/api/obsidian/vault/context",
+        "method": "POST",
+        "request": {
+          "vault_path": "string (required)",
+          "analysis_type": "summary | insights | structure",
+          "files": "string[]"
+        },
+        "response": {
+          "analysis": "string",
+          "insights": "string[]",
+          "recommendations": "string[]",
+          "vault_stats": {
+            "total_files": "number",
+            "total_words": "number", 
+            "topics": "string[]"
+          }
+        }
+      }
+    },
+
+    "advanced_endpoints": {
+      "agent_evolution": {
+        "endpoint": "/api/obsidian/agents/evolve",
+        "method": "POST",
+        "request": {
+          "agent_id": "string (required)",
+          "feedback": "string (required)",
+          "performance_data": {
+            "success_rate": "number",
+            "user_satisfaction": "number"
+          }
+        }
+      },
+
+      "multimodal_analysis": {
+        "endpoint": "/api/obsidian/multimodal/analyze",
+        "method": "POST", 
+        "request": {
+          "content": [{
+            "type": "text | image | audio | file",
+            "data": "string",
+            "metadata": "object"
+          }]
+        }
+      },
+
+      "marketplace": {
+        "discover": {
+          "endpoint": "/api/obsidian/marketplace/discover",
+          "method": "GET",
+          "query_params": {
+            "category": "string",
+            "rating_min": "number"
+          }
+        },
+        "install": {
+          "endpoint": "/api/obsidian/marketplace/install",
+          "method": "POST",
+          "request": {
+            "agent_id": "string (required)",
+            "customization": "object"
+          }
+        }
+      },
+
+      "calendar_integration": {
+        "create_event": {
+          "endpoint": "/events/",
+          "method": "POST",
+          "request": {
+            "title": "string (required)",
+            "start": "string (ISO datetime)",
+            "end": "string (ISO datetime)",
+            "notes": "string | null",
+            "calendar": "string"
+          }
+        },
+        "list_events": {
+          "endpoint": "/events/",
+          "method": "GET"
+        },
+        "update_event": {
+          "endpoint": "/events/{event_id}",
+          "method": "PUT" 
+        },
+        "delete_event": {
+          "endpoint": "/events/{event_id}",
+          "method": "DELETE"
+        }
+      }
+    },
+
+    "websocket_spec": {
+      "connection": {
+        "url": "ws://localhost:8000/ws/obsidian",
+        "handshake": {
+          "type": "handshake",
+          "vault_id": "string",
+          "plugin_version": "string"
+        }
+      },
+      "message_types": {
+        "incoming": [
+          "agent_response",
+          "copilot_suggestion", 
+          "workflow_progress",
+          "vault_update"
+        ],
+        "outgoing": [
+          "ping",
+          "subscribe",
+          "unsubscribe"
+        ]
+      },
+      "message_format": {
+        "type": "string (required)",
+        "data": "any",
+        "timestamp": "string"
+      }
+    },
+
+    "typescript_interfaces": {
+      "ChatRequest": {
+        "message": "string",
+        "conversation_id": "string | undefined",
+        "vault_context": "string | undefined",
+        "mode": "'ask' | 'agent' | undefined"
+      },
+      "ChatResponse": {
+        "response": "string",
+        "conversation_id": "string", 
+        "agent_name": "string",
+        "timestamp": "string",
+        "metadata": {
+          "token_usage": "number",
+          "model": "string"
+        }
+      },
+      "CopilotRequest": {
+        "text": "string",
+        "cursor_position": "number",
+        "file_type": "string",
+        "vault_context": "string | undefined"
+      },
+      "CopilotResponse": {
+        "completion": "string",
+        "suggestions": "string[]",
+        "confidence": "number"
+      },
+      "WorkflowRequest": {
+        "goal": "string",
+        "context": "string | undefined",
+        "vault_content": "string | undefined"
+      },
+      "WorkflowResponse": {
+        "workflow_id": "string",
+        "result": "string",
+        "artifacts": "string[]",
+        "execution_time": "number"
+      }
+    },
+
+    "error_handling": {
+      "http_status_codes": {
+        "200": "Success",
+        "400": "Bad Request - Invalid input",
+        "401": "Unauthorized - Missing/invalid auth",
+        "404": "Not Found - Endpoint doesn't exist", 
+        "422": "Validation Error - Invalid data format",
+        "500": "Internal Server Error"
+      },
+      "error_response_format": {
+        "error": "string",
+        "detail": "string",
+        "code": "number"
+      }
+    },
+
+    "authentication": {
+      "type": "none",
+      "note": "Currently no authentication required for development"
+    },
+
+    "rate_limiting": {
+      "enabled": false,
+      "note": "No rate limiting in development mode"
+    },
+
+    "example_implementations": {
+      "javascript_fetch": {
+        "chat": "fetch('http://localhost:8000/api/obsidian/chat', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({message: 'Hello', mode: 'ask'})})",
+        "copilot": "fetch('http://localhost:8000/api/obsidian/copilot/complete', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text: 'Today I learned', cursor_position: 15, file_type: 'markdown'})})"
+      },
+      "websocket_connection": "const ws = new WebSocket('ws://localhost:8000/ws/obsidian'); ws.onopen = () => ws.send(JSON.stringify({type: 'handshake', vault_id: 'my-vault'}));"
+    },
+
+    "testing": {
+      "curl_examples": {
+        "health": "curl http://localhost:8000/status",
+        "chat": "curl -X POST http://localhost:8000/api/obsidian/chat -H 'Content-Type: application/json' -d '{\"message\": \"Hello\", \"mode\": \"ask\"}'",
+        "copilot": "curl -X POST http://localhost:8000/api/obsidian/copilot/complete -H 'Content-Type: application/json' -d '{\"text\": \"Today I learned\", \"cursor_position\": 15}'"
+      }
+    },
+
+    "documentation_links": {
+      "full_api_reference": "./docs/api/FRONTEND_API_DOCUMENTATION.md",
+      "obsidian_integration": "./docs/obsidian-integration.md", 
+      "websocket_guide": "./WEBSOCKET_GUIDE.md",
+      "setup_guide": "./docs/installation.md"
+    },
+
+    "quick_start": {
+      "steps": [
+        "Start server: python run_server.py",
+        "Test health: curl http://localhost:8000/status", 
+        "Connect WebSocket: new WebSocket('ws://localhost:8000/ws/obsidian')",
+        "Implement chat: POST /api/obsidian/chat",
+        "Add copilot: POST /api/obsidian/copilot/complete"
+      ]
+    }
+  }
+}
