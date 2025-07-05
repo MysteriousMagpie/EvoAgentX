@@ -44,7 +44,7 @@ async def quick_reconnect(vault_id="default"):
             print("✅ Connection test completed successfully!")
             return True
             
-    except websockets.exceptions.ConnectionRefused:
+    except ConnectionRefusedError:
         print("❌ Connection refused - is the server running?")
         print("💡 Try: python run_server.py --dev")
         return False
