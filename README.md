@@ -462,19 +462,16 @@ python -m uvicorn server.main:sio_app --host 0.0.0.0 --port 8000 --reload
 The optional calendar API integrates with macOS Calendar via `osascript`. These
 endpoints only work when run on macOS with AppleScript available.
 
-3. For the React frontend:
+3. For Obsidian integration (recommended):
 
 ```bash
-cd client
-pnpm install
-pnpm dev
+# Install VaultPilot plugin in Obsidian
+# See VAULTPILOT_INTEGRATION_COMPLETE.md for details
 ```
-The `client/` directory contains a full Vite + React + TypeScript project with its own `package.json`.
 
+## 📊 Architecture Overview
 
-## 📊 Full Stack Architecture
-
-EvoAgentX now includes a complete full-stack implementation:
+EvoAgentX is designed as a backend-focused AI agent system with Obsidian integration:
 
 #### Backend (Python)
 - **FastAPI Server** with async support and auto-documentation
@@ -483,12 +480,12 @@ EvoAgentX now includes a complete full-stack implementation:
 - **WebSocket Handlers** for real-time communication
 - **Comprehensive APIs** for workflow management and execution
 
-#### Frontend (React + TypeScript)
-- **Modern React 19** with hooks and functional components
-- **TypeScript** for type safety and better developer experience
-- **Vite** for fast development and optimized builds
-- **Tailwind CSS** for responsive and modern UI design
-- **Socket.IO** for real-time client-server communication
+#### Primary Frontend (Obsidian Integration)
+- **VaultPilot Plugin** for native Obsidian integration
+- **TypeScript APIs** with complete type definitions
+- **Real-time Communication** via WebSocket connections
+- **Conversational Development** with natural language code generation
+- **OpenAI Code Interpreter** integration for intelligent code analysis
 
 #### Intelligence Parser (TypeScript)
 - **Advanced NLP** for content analysis and intent recognition
@@ -496,7 +493,7 @@ EvoAgentX now includes a complete full-stack implementation:
 - **Entity Extraction** for structured data processing
 - **Sentiment Analysis** for emotional tone detection
 
-#### Obsidian Integration
+#### Advanced Features
 - **Plugin-Ready APIs** with complete TypeScript definitions
 - **WebSocket Communication** for live plugin interactions
 - **Specialized Copilot** with vault-aware suggestions

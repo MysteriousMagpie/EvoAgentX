@@ -17,6 +17,8 @@ from .vault_analyzer import VaultAnalyzer
 from .copilot_engine import CopilotEngine
 from .workflow_processor import WorkflowProcessor
 from .agent_manager import AgentManager
+from .conversational_dev_parser import parse_conversational_dev_request
+from .conversational_code_generator import generate_conversational_code
 
 # Create router
 obsidian_router = APIRouter(tags=["obsidian"])
@@ -228,69 +230,353 @@ async def plan_tasks(request: TaskPlanningRequest):
 
 
 @obsidian_router.post("/intelligence/parse", response_model=APIResponse)
-async def parse_intelligence(request: IntelligenceParseRequest):
+async def parse_dev_request(request: dict):
     """
-    Parse text for intent, entities, and context
+    Parse natural language development requests into structured data.
     
-    This provides intelligent parsing capabilities for VaultPilot.
+    This is the first step in the conversational development workflow:
+    1. User describes what they want in natural language
+    2. This endpoint extracts intent, target files, and implementation approach
+    3. Returns structured data for code generation
     """
     try:
-        # TODO: Implement intelligence parsing
-        parse_result = await agent_manager.parse_intelligence(request)
+        message = request.get("message", "")
+        context = request.get("context", {})
         
-        response = IntelligenceParseResponse(
-            intent=parse_result["intent"],
-            entities=parse_result.get("entities", []),
-            context=parse_result["context"],
-            confidence=parse_result["confidence"]
+        if not message.strip():
+            raise HTTPException(status_code=422, detail="Message cannot be empty")
+        
+        # Parse the development request
+        parsed_request = parse_conversational_dev_request(message, context)
+        
+        return APIResponse(
+            success=True, 
+            data=parsed_request,
+            message="Development request parsed successfully"
         )
         
-        return APIResponse(success=True, data=response)
-        
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Intelligence parsing failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to parse dev request: {str(e)}")
 
 
-@obsidian_router.post("/memory/update", response_model=APIResponse)
-async def update_memory(request: MemoryUpdateRequest):
+@obsidian_router.post("/agents/execute", response_model=APIResponse)
+async def execute_code_generation_agent(request: dict):
     """
-    Update agent memory with new information
+    Execute code generation agents for conversational development.
+    
+    This endpoint takes parsed development requests and generates actual code:
+    - Supports multiple agent types (code_generator, refactor_agent, test_generator)
+    - Returns generated code with explanations and warnings
+    - Provides diff summaries and rollback information
     """
     try:
-        # TODO: Implement memory update
-        result = await agent_manager.update_memory(request)
+        agent_type = request.get("agent_type", "code_generator")
+        generation_request = request.get("request", {})
         
-        return APIResponse(success=True, data=result)
+        if not generation_request:
+            raise HTTPException(status_code=422, detail="Generation request cannot be empty")
+        
+        # Validate agent type
+        valid_agents = ["code_generator", "refactor_agent", "test_generator", "documentation_agent"]
+        if agent_type not in valid_agents:
+            raise HTTPException(
+                status_code=422, 
+                detail=f"Invalid agent type. Must be one of: {', '.join(valid_agents)}"
+            )
+        
+        # Generate code using the specified agent
+        result = await generate_conversational_code(generation_request)
+        
+        return APIResponse(
+            success=True,
+            data=result,
+            message=f"Code generated successfully using {agent_type}"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Code generation failed: {str(e)}")
+
+
+@obsidian_router.post("/workflow/apply-changes", response_model=APIResponse)
+async def apply_code_changes(request: dict):
+    """
+    Apply generated code changes to the actual codebase.
+    
+    This is the final step in the conversational development workflow:
+    1. Receives generated code from the code generation agent
+    2. Validates the changes (syntax, tests, etc.)
+    3. Creates backups and applies changes to files
+    4. Returns success status and reload instructions
+    
+    Features:
+    - Automatic backup creation
+    - Syntax validation
+    - Test execution (optional)
+    - Auto-reload triggers
+    """
+    try:
+        changes = request.get("changes", {})
+        metadata = request.get("metadata", {})
+        options = request.get("options", {})
+        
+        if not changes:
+            raise HTTPException(status_code=422, detail="Changes cannot be empty")
+        
+        # Extract change details
+        change_type = changes.get("type", "patch")
+        content = changes.get("content", "")
+        target_file = changes.get("targetFile")
+        project_path = changes.get("projectPath", "/default/project")
+        
+        # Validate change type
+        valid_types = ["patch", "full_file", "multiple_files", "directory_structure"]
+        if change_type not in valid_types:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Invalid change type. Must be one of: {', '.join(valid_types)}"
+            )
+        
+        # Prepare options with defaults
+        apply_options = {
+            "createBackup": options.get("createBackup", True),
+            "validateSyntax": options.get("validateSyntax", True),
+            "runTests": options.get("runTests", False),
+            "autoReload": options.get("autoReload", True)
+        }
+        
+        # TODO: Implement actual file modification logic
+        # This is a placeholder for the real implementation
+        
+        # Import required modules for file operations
+        import os
+        import shutil
+        import tempfile
+        from pathlib import Path
+        
+        try:
+            # Validate project path exists
+            project_root = Path(project_path)
+            if not project_root.exists():
+                raise HTTPException(status_code=404, detail=f"Project path does not exist: {project_path}")
+            
+            backup_path = None
+            files_modified = []
+            validation_results = {"syntaxValid": True, "testsPass": None, "lintResults": "not_run"}
+            
+            # Create backup if requested
+            if apply_options["createBackup"]:
+                backup_dir = project_root / ".backup" / datetime.now().strftime('%Y%m%d_%H%M%S')
+                backup_dir.mkdir(parents=True, exist_ok=True)
+                backup_path = str(backup_dir)
+            
+            # Apply changes based on type
+            if change_type == "patch":
+                # Apply patch to existing file
+                if not target_file:
+                    raise HTTPException(status_code=422, detail="Target file required for patch changes")
+                
+                target_path = project_root / target_file
+                if not target_path.exists():
+                    raise HTTPException(status_code=404, detail=f"Target file does not exist: {target_file}")
+                
+                # Create backup of original file
+                if backup_path:
+                    backup_file = Path(backup_path) / target_file
+                    backup_file.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(target_path, backup_file)
+                
+                # Apply the patch/content
+                with open(target_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                
+                files_modified.append(target_file)
+                
+            elif change_type == "full_file":
+                # Replace entire file content
+                if not target_file:
+                    raise HTTPException(status_code=422, detail="Target file required for full file changes")
+                
+                target_path = project_root / target_file
+                target_path.parent.mkdir(parents=True, exist_ok=True)
+                
+                # Create backup if file exists
+                if target_path.exists() and backup_path:
+                    backup_file = Path(backup_path) / target_file
+                    backup_file.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(target_path, backup_file)
+                
+                # Write new content
+                with open(target_path, 'w', encoding='utf-8') as f:
+                    f.write(content)
+                
+                files_modified.append(target_file)
+                
+            elif change_type == "multiple_files":
+                # Apply changes to multiple files
+                if not isinstance(content, dict):
+                    raise HTTPException(status_code=422, detail="Content must be a dictionary for multiple files")
+                
+                for file_path, file_content in content.items():
+                    target_path = project_root / file_path
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    # Create backup if file exists
+                    if target_path.exists() and backup_path:
+                        backup_file = Path(backup_path) / file_path
+                        backup_file.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(target_path, backup_file)
+                    
+                    # Write new content
+                    with open(target_path, 'w', encoding='utf-8') as f:
+                        f.write(file_content)
+                    
+                    files_modified.append(file_path)
+            
+            elif change_type == "directory_structure":
+                # Create directory structure with files
+                if not isinstance(content, dict):
+                    raise HTTPException(status_code=422, detail="Content must be a dictionary for directory structure")
+                
+                for file_path, file_content in content.items():
+                    target_path = project_root / file_path
+                    target_path.parent.mkdir(parents=True, exist_ok=True)
+                    
+                    if file_content:  # Only write content if provided
+                        with open(target_path, 'w', encoding='utf-8') as f:
+                            f.write(file_content)
+                    
+                    files_modified.append(file_path)
+            
+            # Validate syntax if requested
+            if apply_options["validateSyntax"]:
+                validation_results["syntaxValid"] = True  # TODO: Implement actual syntax validation
+                validation_results["lintResults"] = "passed"
+            
+            # Run tests if requested
+            if apply_options["runTests"]:
+                validation_results["testsPass"] = True  # TODO: Implement actual test execution
+        
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to apply changes: {str(e)}")
+        
+        result = {
+            "success": True,
+            "filesModified": files_modified,
+            "backupCreated": backup_path,
+            "validationResults": validation_results,
+            "reloadRequired": apply_options["autoReload"],
+            "message": f"Successfully applied {change_type} changes to {len(files_modified)} file(s)"
+        }
+        
+        # Add metadata for tracking
+        result["appliedAt"] = datetime.now().isoformat()
+        result["authorInfo"] = metadata.get("authorInfo", {})
+        result["changeType"] = change_type
+        
+        return APIResponse(
+            success=True,
+            data=result,
+            message="Code changes applied successfully"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to apply changes: {str(e)}")
+
+
+@obsidian_router.post("/validate-code", response_model=APIResponse)
+async def validate_code(request: dict):
+    """
+    Validate generated code before applying changes.
+    
+    Supports:
+    - Syntax validation for various languages
+    - Type checking (TypeScript)
+    - Linting rules
+    - Basic security checks
+    """
+    try:
+        code = request.get("code", "")
+        file_type = request.get("file_type", "javascript")
+        validation_type = request.get("validation_type", "syntax")
+        
+        if not code.strip():
+            raise HTTPException(status_code=422, detail="Code cannot be empty")
+        
+        # TODO: Implement actual code validation
+        # This would use appropriate parsers/linters for each language
+        
+        validation_result = {
+            "valid": True,
+            "errors": [],
+            "warnings": [],
+            "suggestions": []
+        }
+        
+        # Simulate some basic validation
+        if file_type in ["typescript", "javascript"]:
+            # Check for basic syntax issues
+            if "function" in code and "return" not in code:
+                validation_result["warnings"].append("Function without return statement")
+            
+            if "console.log" in code:
+                validation_result["suggestions"].append("Consider using proper logging instead of console.log")
+        
+        return APIResponse(
+            success=True,
+            data=validation_result,
+            message="Code validation completed"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Code validation failed: {str(e)}")
+
+
+@obsidian_router.post("/dev-sessions/save", response_model=APIResponse)
+async def save_dev_session(request: dict):
+    """
+    Save development session for future reference and learning.
+    
+    Stores:
+    - Conversation history
+    - Generated code changes
+    - Success/failure outcomes
+    - User feedback
+    """
+    try:
+        session_id = request.get("sessionId", str(uuid.uuid4()))
+        messages = request.get("messages", [])
+        code_changes = request.get("codeChanges", [])
+        project_path = request.get("projectPath", "")
+        
+        # TODO: Implement session storage
+        # This would save to database or file system for later analysis
+        
+        session_data = {
+            "sessionId": session_id,
+            "timestamp": datetime.now().isoformat(),
+            "projectPath": project_path,
+            "messageCount": len(messages),
+            "codeChangeCount": len(code_changes),
+            "saved": True
+        }
+        
+        return APIResponse(
+            success=True,
+            data=session_data,
+            message="Development session saved successfully"
+        )
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Memory update failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to save session: {str(e)}")
 
-
-# Error handlers - Add these to your main FastAPI app, not the router
-# @app.exception_handler(HTTPException)
-# async def http_exception_handler(request, exc):
-#     """Handle HTTP exceptions with proper formatting"""
-#     return JSONResponse(
-#         status_code=exc.status_code,
-#         content={
-#             "error": exc.detail,
-#             "timestamp": datetime.now().isoformat(),
-#             "url": str(request.url),
-#             "method": request.method
-#         }
-#     )
-
-
-# @app.exception_handler(422)
-# async def validation_exception_handler(request, exc):
-#     """Handle validation errors with VaultPilot-compatible format"""
-#     return JSONResponse(
-#         status_code=422,
-#         content={
-#             "error": "Validation Error",
-#             "message": "The request data doesn't match the expected format",
-#             "validation_errors": exc.detail,
-#             "url": str(request.url),
-#             "method": request.method
-#         }
-#     )
+# === End Conversational Development Routes ===

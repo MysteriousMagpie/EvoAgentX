@@ -285,3 +285,126 @@ class IntelligenceParseResponse(BaseModel):
     response: str
     parsed_data: Optional[Dict[str, Any]] = None
     follow_up_needed: bool = False
+
+
+# Model Selection Schemas for Enhanced AI Capabilities
+
+class ModelSelectionRequest(BaseModel):
+    task_type: Literal[
+        "chat", "code_generation", "text_analysis", "reasoning", 
+        "creative_writing", "summarization", "translation", "vault_management"
+    ] = Field(default="chat", description="Type of task for model optimization")
+    preferred_models: Optional[List[str]] = Field(
+        default=None, 
+        description="Ordered list of preferred models"
+    )
+    constraints: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Performance and cost constraints"
+    )
+    context: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Additional context for selection"
+    )
+
+
+class ModelPerformanceMetrics(BaseModel):
+    success_rate: float = Field(ge=0, le=1, description="Success rate as decimal")
+    avg_response_time: float = Field(ge=0, description="Average response time in seconds")
+    cost_per_request: float = Field(ge=0, description="Average cost per request")
+    total_requests: int = Field(ge=0, description="Total number of requests")
+    last_success: Optional[datetime] = Field(description="Timestamp of last successful request")
+    last_failure: Optional[datetime] = Field(description="Timestamp of last failed request")
+
+
+class SelectedModelInfo(BaseModel):
+    name: str = Field(description="Model name/identifier")
+    provider: str = Field(description="Model provider (openai, anthropic, etc.)")
+    model_id: str = Field(description="Specific model ID")
+    capabilities: List[str] = Field(description="List of supported task types")
+    performance_metrics: Optional[ModelPerformanceMetrics] = None
+
+
+class ModelSelectionResponse(BaseModel):
+    success: bool = Field(description="Whether model selection was successful")
+    selected_model: Optional[SelectedModelInfo] = None
+    fallback_models: Optional[List[str]] = Field(
+        default=None,
+        description="Available fallback models in order of preference"
+    )
+    reasoning: Optional[str] = Field(
+        default=None,
+        description="Explanation of why this model was selected"
+    )
+    error: Optional[str] = Field(
+        default=None,
+        description="Error message if selection failed"
+    )
+
+
+class ModelHealthRequest(BaseModel):
+    models: Optional[List[str]] = Field(
+        default=None,
+        description="Specific models to check (empty for all models)"
+    )
+    include_metrics: bool = Field(
+        default=True,
+        description="Whether to include detailed performance metrics"
+    )
+
+
+class ModelHealthInfo(BaseModel):
+    status: Literal["healthy", "degraded", "failed", "unknown"]
+    success_rate: float = Field(ge=0, le=1)
+    total_requests: int = Field(ge=0)
+    average_response_time: float = Field(ge=0)
+    cost_per_success: float = Field(ge=0)
+    last_success: Optional[datetime] = None
+    last_failure: Optional[datetime] = None
+    capabilities: List[str] = Field(default_factory=list)
+    task_performance: Dict[str, float] = Field(
+        default_factory=dict,
+        description="Performance metrics per task type"
+    )
+
+
+class ModelHealthSummary(BaseModel):
+    total_models: int = Field(ge=0)
+    healthy_models: int = Field(ge=0)
+    degraded_models: int = Field(ge=0)
+    failed_models: int = Field(ge=0)
+    unknown_models: int = Field(ge=0)
+
+
+class ModelHealthResponse(BaseModel):
+    models: Dict[str, ModelHealthInfo] = Field(
+        description="Health information for each model"
+    )
+    summary: ModelHealthSummary = Field(
+        description="Overall health summary"
+    )
+    timestamp: datetime = Field(
+        default_factory=datetime.now,
+        description="When the health check was performed"
+    )
+
+
+class ModelPreferencesRequest(BaseModel):
+    task_preferences: Optional[Dict[str, List[str]]] = Field(
+        default=None,
+        description="User's preferred models for each task type"
+    )
+    cost_constraints: Optional[Dict[str, float]] = Field(
+        default=None,
+        description="Maximum cost constraints per task type"
+    )
+    performance_requirements: Optional[Dict[str, Dict[str, float]]] = Field(
+        default=None,
+        description="Performance requirements per task type"
+    )
+
+
+class ModelPreferencesResponse(BaseModel):
+    success: bool
+    updated_preferences: Dict[str, Any]
+    message: str

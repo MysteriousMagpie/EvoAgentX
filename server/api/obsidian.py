@@ -25,12 +25,20 @@ from ..models.obsidian_schemas import (
     BatchFileOperationRequest, BatchFileOperationResponse,
     VaultSearchRequest, VaultSearchResponse,
     VaultOrganizationRequest, VaultOrganizationResponse,
-    VaultBackupRequest, VaultBackupResponse
+    VaultBackupRequest, VaultBackupResponse,
+    # Model Selection schemas
+    ModelSelectionRequest, ModelSelectionResponse,
+    ModelHealthRequest, ModelHealthResponse,
+    ModelPreferencesRequest, ModelPreferencesResponse
 )
 from evoagentx.core.runner import run_workflow_async
 from evoagentx.agents import CustomizeAgent, Agent
 from evoagentx.agents.vault_manager import VaultManagerAgent
 from evoagentx.models import OpenAILLMConfig
+from evoagentx.models.robust_model_selector import (
+    RobustModelSelector, ModelSelectionCriteria, TaskType,
+    get_robust_model_selector, initialize_robust_model_selector
+)
 from evoagentx.agents.task_planner import TaskPlanner
 from evoagentx.prompts.agent_generator import AGENT_GENERATOR
 from evoagentx.intents.embed_classifier import classify_intent, Intent
@@ -682,3 +690,266 @@ async def create_vault_backup(request: VaultBackupRequest):
         raise HTTPException(status_code=500, detail=f"Backup error: {str(e)}")
 
 # ===== END NEW VAULT MANAGEMENT ENDPOINTS =====
+
+# ===== MODEL SELECTION AND AI CAPABILITIES ENDPOINTS =====
+
+# Initialize the robust model selector with devpipe integration
+def get_model_selector() -> RobustModelSelector:
+    """Get or initialize the robust model selector"""
+    selector = get_robust_model_selector()
+    if selector is None:
+        # Initialize with devpipe path if available
+        devpipe_path = os.getenv("DEVPIPE_PATH", "/Users/malachiledbetter/Documents/GitHub/EvoAgentX/dev-pipe")
+        selector = initialize_robust_model_selector(devpipe_path)
+        
+        # Enable devpipe integration features
+        selector.enable_devpipe_integration()
+        
+    return selector
+
+@router.post("/models/select", response_model=ModelSelectionResponse)
+async def select_optimal_model(request: ModelSelectionRequest):
+    """Select the optimal model for a specific task with intelligent fallback"""
+    try:
+        selector = get_model_selector()
+        
+        # Convert task type string to enum
+        try:
+            task_type = TaskType(request.task_type.upper())
+        except ValueError:
+            # Default to GENERAL for unknown task types
+            task_type = TaskType.GENERAL
+        
+        # Build selection criteria
+        criteria = ModelSelectionCriteria(
+            task_type=task_type,
+            priority_order=request.preferred_models or [],
+            fallback_enabled=True,
+            require_healthy_status=True
+        )
+        
+        # Apply constraints if provided
+        if request.constraints:
+            if "max_cost_per_request" in request.constraints:
+                criteria.max_cost_per_request = request.constraints["max_cost_per_request"]
+            if "min_success_rate" in request.constraints:
+                criteria.min_success_rate = request.constraints["min_success_rate"]
+            if "max_response_time" in request.constraints:
+                criteria.max_response_time = request.constraints["max_response_time"]
+            if "require_healthy_status" in request.constraints:
+                criteria.require_healthy_status = request.constraints["require_healthy_status"]
+        
+        # Select the optimal model
+        selected_model = selector.select_model(criteria)
+        
+        if selected_model:
+            # Get performance metrics for the selected model
+            model_name = selected_model.config.model
+            metrics = selector.health_monitor.get_performance_metrics(model_name)
+            
+            # Get fallback models
+            candidates = selector._get_candidate_models(criteria)
+            fallback_models = [m for m in candidates if m != model_name][:3]  # Top 3 fallbacks
+            
+            # Build performance metrics response
+            performance_metrics = None
+            if metrics:
+                from ..models.obsidian_schemas import ModelPerformanceMetrics
+                performance_metrics = ModelPerformanceMetrics(
+                    success_rate=metrics.success_rate,
+                    avg_response_time=metrics.average_response_time,
+                    cost_per_request=metrics.cost_per_success,
+                    total_requests=metrics.total_requests,
+                    last_success=metrics.last_success_time,
+                    last_failure=metrics.last_failure_time
+                )
+            
+            # Build selected model info
+            from ..models.obsidian_schemas import SelectedModelInfo
+            selected_model_info = SelectedModelInfo(
+                name=model_name,
+                provider=getattr(selected_model.config, 'provider', 'unknown'),
+                model_id=selected_model.config.model,
+                capabilities=[task_type.value],
+                performance_metrics=performance_metrics
+            )
+            
+            # Generate reasoning
+            reasoning = f"Selected {model_name} for {request.task_type} based on "
+            if metrics:
+                reasoning += f"success rate of {metrics.success_rate:.2%} and average response time of {metrics.average_response_time:.2f}s"
+            else:
+                reasoning += "default configuration and model capabilities"
+            
+            return ModelSelectionResponse(
+                success=True,
+                selected_model=selected_model_info,
+                fallback_models=fallback_models,
+                reasoning=reasoning
+            )
+        else:
+            return ModelSelectionResponse(
+                success=False,
+                error="No suitable model found matching the specified criteria"
+            )
+            
+    except Exception as e:
+        return ModelSelectionResponse(
+            success=False,
+            error=f"Model selection failed: {str(e)}"
+        )
+
+@router.post("/models/health", response_model=ModelHealthResponse)
+async def get_model_health_status(request: ModelHealthRequest):
+    """Get comprehensive health status and performance metrics for AI models"""
+    try:
+        selector = get_model_selector()
+        
+        # Get health summary
+        health_summary = selector.get_health_summary()
+        
+        # Filter models if specific ones were requested
+        models_to_check = request.models or list(health_summary["models"].keys())
+        
+        # Build response
+        from ..models.obsidian_schemas import ModelHealthInfo, ModelHealthSummary
+        
+        models_health = {}
+        for model_name in models_to_check:
+            if model_name in health_summary["models"]:
+                model_data = health_summary["models"][model_name]
+                
+                models_health[model_name] = ModelHealthInfo(
+                    status=model_data["status"],
+                    success_rate=model_data["success_rate"],
+                    total_requests=model_data["total_requests"],
+                    average_response_time=model_data["average_response_time"],
+                    cost_per_success=model_data["cost_per_success"],
+                    last_success=datetime.fromisoformat(model_data.get("last_success", "1970-01-01T00:00:00")) if model_data.get("last_success") else None,
+                    last_failure=datetime.fromisoformat(model_data.get("last_failure", "1970-01-01T00:00:00")) if model_data.get("last_failure") else None,
+                    capabilities=[],  # TODO: Add capability detection
+                    task_performance=model_data.get("task_performance", {})
+                )
+        
+        summary = ModelHealthSummary(
+            total_models=health_summary["total_models"],
+            healthy_models=health_summary["healthy_models"],
+            degraded_models=health_summary["degraded_models"],
+            failed_models=health_summary["failed_models"],
+            unknown_models=health_summary["unknown_models"]
+        )
+        
+        return ModelHealthResponse(
+            models=models_health,
+            summary=summary,
+            timestamp=datetime.now()
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Health check failed: {str(e)}")
+
+@router.post("/models/preferences", response_model=ModelPreferencesResponse)
+async def update_model_preferences(request: ModelPreferencesRequest):
+    """Update user preferences for model selection"""
+    try:
+        selector = get_model_selector()
+        
+        updated_preferences = {}
+        
+        # Update task preferences
+        if request.task_preferences:
+            for task_name, preferred_models in request.task_preferences.items():
+                try:
+                    task_type = TaskType(task_name.upper())
+                    # Update the default model configs to reflect user preferences
+                    selector.default_model_configs[task_type] = preferred_models
+                    updated_preferences[f"task_preferences.{task_name}"] = preferred_models
+                except ValueError:
+                    continue
+        
+        # Note: Cost constraints and performance requirements could be stored
+        # in user preferences or configuration system
+        
+        return ModelPreferencesResponse(
+            success=True,
+            updated_preferences=updated_preferences,
+            message="Model preferences updated successfully"
+        )
+        
+    except Exception as e:
+        return ModelPreferencesResponse(
+            success=False,
+            updated_preferences={},
+            message=f"Failed to update preferences: {str(e)}"
+        )
+
+@router.get("/models/available")
+async def get_available_models():
+    """Get list of all available models and their capabilities"""
+    try:
+        selector = get_model_selector()
+        
+        available_models = {}
+        
+        # Get all registered models from the default configurations
+        for task_type, models in selector.default_model_configs.items():
+            for model_name in models:
+                if model_name not in available_models:
+                    available_models[model_name] = {
+                        "name": model_name,
+                        "capabilities": [],
+                        "status": "unknown"
+                    }
+                available_models[model_name]["capabilities"].append(task_type.value)
+                
+                # Get current status
+                status = selector.health_monitor.get_model_status(model_name)
+                available_models[model_name]["status"] = status.value
+        
+        return {
+            "models": list(available_models.values()),
+            "total_count": len(available_models),
+            "task_types": [task.value for task in TaskType]
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get available models: {str(e)}")
+
+@router.post("/models/performance/record")
+async def record_model_performance(
+    model_name: str,
+    task_type: str,
+    success: bool,
+    response_time: float,
+    cost: float = 0.0,
+    quality_score: Optional[float] = None
+):
+    """Record performance metrics for a model (for external integrations)"""
+    try:
+        selector = get_model_selector()
+        
+        # Convert task type
+        try:
+            task_enum = TaskType(task_type.upper())
+        except ValueError:
+            task_enum = TaskType.GENERAL
+        
+        # Record the performance
+        selector.health_monitor.record_request(
+            model_name=model_name,
+            task_type=task_enum,
+            success=success,
+            response_time=response_time,
+            cost=cost
+        )
+        
+        return {
+            "success": True,
+            "message": f"Performance recorded for {model_name}",
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to record performance: {str(e)}")
+
+# ===== END MODEL SELECTION ENDPOINTS =====

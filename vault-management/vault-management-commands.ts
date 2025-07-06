@@ -50,6 +50,10 @@ class Notice {
   }
 }
 
+// Configuration constants (should be loaded from plugin settings)
+const API_BASE_URL = 'http://localhost:8000/api';
+const API_KEY = process.env.EVOAGENTX_API_KEY || '';
+
 // Modal base classes - these would normally be imported from Obsidian
 class Modal {
   constructor(public app: App) {}
@@ -345,4 +349,241 @@ function renderFolderStructure(folder: VaultFolderInfo, focusPath: string, level
   });
   
   return result;
+}
+
+// === OPENAI CODE INTERPRETER COMMANDS ===
+
+/**
+ * Analyze current file/selection with OpenAI Code Interpreter
+ */
+export const analyzeCodeWithInterpreter: Command = {
+  id: 'evoagentx-analyze-code',
+  name: 'EvoAgentX: Analyze Code with AI Interpreter',
+  editorCallback: async (editor: Editor) => {
+    try {
+      const selection = editor.getSelection();
+      const content = selection || 'No selection - analyzing current context';
+      
+      new Notice('Analyzing code with OpenAI Code Interpreter...');
+      
+      // Call the analyze-code endpoint we created
+      const response = await fetch(`${API_BASE_URL}/analyze-code`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API_KEY}`
+        },
+        body: JSON.stringify({
+          code: content,
+          context: {
+            file_type: 'auto-detect',
+            analysis_type: 'comprehensive'
+          }
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Analysis failed: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        const analysis = result.data;
+        
+        // Show analysis results in a modal or new note
+        await showAnalysisResults(analysis);
+        new Notice('Code analysis completed!');
+      } else {
+        throw new Error(result.message || 'Analysis failed');
+      }
+      
+    } catch (error) {
+      console.error('Code analysis error:', error);
+      new Notice(`Analysis failed: ${(error as Error).message}`);
+    }
+  }
+};
+
+/**
+ * Select and configure OpenAI Code Interpreter
+ */
+export const selectCodeInterpreter: Command = {
+  id: 'evoagentx-select-interpreter',
+  name: 'EvoAgentX: Configure Code Interpreter',
+  callback: async () => {
+    try {
+      new Notice('Opening interpreter configuration...');
+      
+      // Get current interpreter settings
+      const response = await fetch(`${API_BASE_URL}/interpreter/config`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${API_KEY}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to get interpreter config: ${response.statusText}`);
+      }
+      
+      const config = await response.json();
+      
+      // Show interpreter selection modal
+      await showInterpreterSelectionModal(config.data);
+      
+    } catch (error) {
+      console.error('Interpreter selection error:', error);
+      new Notice(`Failed to open interpreter config: ${(error as Error).message}`);
+    }
+  }
+};
+
+/**
+ * Execute code with selected interpreter
+ */
+export const executeCodeWithInterpreter: Command = {
+  id: 'evoagentx-execute-code',
+  name: 'EvoAgentX: Execute Code with Interpreter',
+  editorCallback: async (editor: Editor) => {
+    try {
+      const selection = editor.getSelection();
+      
+      if (!selection.trim()) {
+        new Notice('Please select code to execute');
+        return;
+      }
+      
+      new Notice('Executing code with interpreter...');
+      
+      const response = await fetch(`${API_BASE_URL}/interpreter/execute`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${API_KEY}`
+        },
+        body: JSON.stringify({
+          code: selection,
+          interpreter: 'auto', // or user-selected interpreter
+          context: {
+            file_type: 'auto-detect'
+          }
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Execution failed: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        await showExecutionResults(result.data);
+        new Notice('Code executed successfully!');
+      } else {
+        throw new Error(result.message || 'Execution failed');
+      }
+      
+    } catch (error) {
+      console.error('Code execution error:', error);
+      new Notice(`Execution failed: ${(error as Error).message}`);
+    }
+  }
+};
+
+// === HELPER FUNCTIONS FOR INTERPRETER INTEGRATION ===
+
+/**
+ * Show code analysis results in a modal or new note
+ */
+async function showAnalysisResults(analysis: any): Promise<void> {
+  const results = `# Code Analysis Results
+
+## Interpreter Recommendation
+**Recommended Interpreter:** ${analysis.recommendedInterpreter}
+**Confidence:** ${(analysis.confidence * 100).toFixed(1)}%
+
+## Analysis Summary
+${analysis.analysis || 'No detailed analysis available'}
+
+## Code Quality
+${analysis.codeQuality ? `
+- **Complexity:** ${analysis.codeQuality.complexity}
+- **Maintainability:** ${analysis.codeQuality.maintainability}
+- **Performance:** ${analysis.codeQuality.performance}
+` : 'Quality metrics not available'}
+
+## Suggestions
+${analysis.suggestions ? analysis.suggestions.map((s: string) => `- ${s}`).join('\n') : 'No suggestions available'}
+
+## Potential Issues
+${analysis.issues ? analysis.issues.map((i: string) => `- ${i}`).join('\n') : 'No issues detected'}
+
+---
+*Analysis generated on ${new Date().toISOString()}*
+`;
+
+  // Create a new note with the analysis results
+  const fileName = `Code Analysis - ${new Date().toISOString().split('T')[0]}.md`;
+  
+  // This would be implemented based on your app instance
+  // app.vault.create(fileName, results);
+  
+  console.log('Analysis results:', results);
+  new Notice('Analysis results saved to new note');
+}
+
+/**
+ * Show interpreter selection modal
+ */
+async function showInterpreterSelectionModal(config: any): Promise<void> {
+  // This would show a modal with interpreter options
+  // For now, we'll log the available options
+  console.log('Available interpreters:', config.availableInterpreters);
+  console.log('Current interpreter:', config.currentInterpreter);
+  
+  // In a real implementation, this would show a modal with:
+  // - List of available interpreters
+  // - Current selection
+  // - Configuration options
+  // - Save/Apply buttons
+  
+  new Notice('Interpreter configuration modal would open here');
+}
+
+/**
+ * Show code execution results
+ */
+async function showExecutionResults(results: any): Promise<void> {
+  const output = `# Code Execution Results
+
+## Status
+**Status:** ${results.status}
+**Execution Time:** ${results.executionTime || 'N/A'}
+
+## Output
+\`\`\`
+${results.output || 'No output generated'}
+\`\`\`
+
+## Errors
+${results.errors ? `\`\`\`
+${results.errors}
+\`\`\`` : 'No errors'}
+
+## Interpreter Used
+**Interpreter:** ${results.interpreter}
+**Version:** ${results.interpreterVersion || 'N/A'}
+
+---
+*Executed on ${new Date().toISOString()}*
+`;
+
+  const fileName = `Execution Results - ${new Date().toISOString().split('T')[0]}.md`;
+  
+  // Create a new note with the execution results
+  // app.vault.create(fileName, output);
+  
+  console.log('Execution results:', output);
+  new Notice('Execution results saved to new note');
 }

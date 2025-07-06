@@ -3,8 +3,16 @@ from pydantic import BaseModel
 import time
 import os
 import json
+from typing import Optional, List, Dict, Any
 
 from .tools.interpreter_docker import DockerInterpreter, DockerLimits, ALLOWED_RUNTIMES
+# Import intelligent interpreter selector and OpenAI interpreter
+from .tools.intelligent_interpreter_selector import (
+    IntelligentInterpreterSelector, 
+    ExecutionContext, 
+    execute_smart
+)
+from .tools.openai_code_interpreter import OpenAICodeInterpreter
 
 # Import VaultPilot integration
 VAULTPILOT_AVAILABLE = False
@@ -62,6 +70,43 @@ def execute(req: ExecRequest):
         return ExecResponse(stdout=output, stderr="", exit_code=0, runtime_seconds=runtime)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Enhanced execution models
+class SmartExecRequest(BaseModel):
+    code: str
+    language: str = "python"
+    interpreter: Optional[str] = "auto"  # auto, python, docker, openai
+    security_level: str = "medium"  # low, medium, high
+    budget_limit: Optional[float] = None
+    files: Optional[List[str]] = None
+    visualization_needed: bool = False
+    performance_priority: bool = False
+
+
+class SmartExecResponse(BaseModel):
+    output: str
+    interpreter_used: str
+    success: bool
+    estimated_cost: float
+    runtime_seconds: float
+    analysis: Dict[str, Any]
+    error: Optional[str] = None
+
+
+class OpenAIExecRequest(BaseModel):
+    code: str
+    language: str = "python"
+    files: Optional[List[str]] = None
+    model: str = "gpt-4-1106-preview"
+
+
+class OpenAIExecResponse(BaseModel):
+    output: str
+    generated_files: List[Dict[str, str]]
+    uploaded_file_ids: List[str]
+    success: bool
+    error: Optional[str] = None
 
 
 # Include VaultPilot routes if available
@@ -188,3 +233,162 @@ async def websocket_status():
         "endpoint": "ws://127.0.0.1:8000/ws/obsidian",
         "timestamp": time.time()
     }
+
+
+@app.post("/execute/smart", response_model=SmartExecResponse)
+def execute_smart_endpoint(req: SmartExecRequest):
+    """
+    Execute code using intelligent interpreter selection.
+    Automatically chooses the best interpreter based on code analysis and context.
+    """
+    start = time.monotonic()
+    
+    try:
+        context = ExecutionContext(
+            security_level=req.security_level,
+            budget_limit=req.budget_limit,
+            files_required=req.files or [],
+            visualization_needed=req.visualization_needed,
+            performance_priority=req.performance_priority
+        )
+        
+        if req.interpreter == "auto":
+            # Use intelligent selection
+            result = execute_smart(
+                code=req.code,
+                language=req.language,
+                security_level=req.security_level,
+                budget_limit=req.budget_limit,
+                files=req.files
+            )
+        else:
+            # Use specified interpreter
+            selector = IntelligentInterpreterSelector()
+            if req.interpreter == "python":
+                from .tools.interpreter_python import PythonInterpreter
+                interpreter = PythonInterpreter()
+            elif req.interpreter == "docker":
+                interpreter = DockerInterpreter(print_stdout=False, print_stderr=False)
+            elif req.interpreter == "openai":
+                interpreter = OpenAICodeInterpreter()
+            else:
+                raise HTTPException(status_code=400, detail=f"Invalid interpreter: {req.interpreter}")
+            
+            output = interpreter.execute(req.code, req.language)
+            result = {
+                'output': output,
+                'interpreter_used': req.interpreter,
+                'analysis': selector.analyze_code(req.code),
+                'estimated_cost': selector.estimate_openai_cost(req.code) if req.interpreter == "openai" else 0,
+                'success': True
+            }
+        
+        runtime = time.monotonic() - start
+        
+        return SmartExecResponse(
+            output=result['output'],
+            interpreter_used=result['interpreter_used'],
+            success=result['success'],
+            estimated_cost=result['estimated_cost'],
+            runtime_seconds=runtime,
+            analysis=result['analysis'],
+            error=result.get('error')
+        )
+        
+    except Exception as e:
+        runtime = time.monotonic() - start
+        return SmartExecResponse(
+            output="",
+            interpreter_used="error",
+            success=False,
+            estimated_cost=0,
+            runtime_seconds=runtime,
+            analysis={},
+            error=str(e)
+        )
+
+
+@app.post("/execute/openai", response_model=OpenAIExecResponse)
+def execute_openai_endpoint(req: OpenAIExecRequest):
+    """
+    Execute code using OpenAI's Code Interpreter with optional file uploads.
+    """
+    try:
+        interpreter = OpenAICodeInterpreter(model=req.model)
+        
+        if req.files:
+            # Execute with files
+            result = interpreter.execute_with_files(req.code, req.files, req.language)
+            return OpenAIExecResponse(
+                output=result.get('output', ''),
+                generated_files=result.get('generated_files', []),
+                uploaded_file_ids=result.get('uploaded_file_ids', []),
+                success='error' not in result,
+                error=result.get('error')
+            )
+        else:
+            # Simple execution
+            output = interpreter.execute(req.code, req.language)
+            return OpenAIExecResponse(
+                output=output,
+                generated_files=[],
+                uploaded_file_ids=[],
+                success=not output.startswith('Error:'),
+                error=output if output.startswith('Error:') else None
+            )
+            
+    except Exception as e:
+        return OpenAIExecResponse(
+            output="",
+            generated_files=[],
+            uploaded_file_ids=[],
+            success=False,
+            error=str(e)
+        )
+
+
+@app.post("/analyze-code")
+def analyze_code_endpoint(request: dict):
+    """
+    Analyze code and provide interpreter recommendations
+    """
+    try:
+        code = request.get('code', '')
+        selector = IntelligentInterpreterSelector()
+        
+        # Analyze the code
+        analysis = selector.analyze_code(code)
+        
+        # Get recommendation
+        context = ExecutionContext()
+        recommended_interpreter = selector.select_interpreter(code, context)
+        
+        # Estimate cost
+        estimated_cost = selector.estimate_openai_cost(code)
+        
+        return {
+            "analysis": analysis,
+            "recommended_interpreter": recommended_interpreter.value,
+            "estimated_cost": estimated_cost,
+            "suggestions": _get_interpreter_suggestions(analysis)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Analysis failed: {str(e)}")
+
+def _get_interpreter_suggestions(analysis):
+    """Generate human-readable suggestions based on analysis"""
+    suggestions = []
+    
+    if analysis['has_visualization']:
+        suggestions.append("Consider OpenAI interpreter for automatic chart generation")
+    
+    if analysis['security_risk_score'] > 2:
+        suggestions.append("Use Docker interpreter for security isolation")
+    
+    if analysis['complexity_score'] < 5:
+        suggestions.append("Local Python interpreter sufficient for simple code")
+    
+    if analysis['has_data_processing']:
+        suggestions.append("OpenAI interpreter provides extensive data science libraries")
+    
+    return suggestions
