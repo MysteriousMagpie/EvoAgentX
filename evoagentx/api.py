@@ -120,6 +120,72 @@ if VAULTPILOT_AVAILABLE and obsidian_router:
     print("   - /api/obsidian/copilot/complete")
     print("   - /ws/obsidian (WebSocket)")
 
+# Add DevPipe API endpoints for VaultPilot model selection
+from fastapi import APIRouter
+
+devpipe_router = APIRouter(prefix="/api/v1/devpipe", tags=["DevPipe"])
+
+@devpipe_router.get("/health")
+async def devpipe_health():
+    """DevPipe health check endpoint for VaultPilot integration"""
+    return {
+        "status": "healthy",
+        "service": "devpipe",
+        "timestamp": time.time(),
+        "model_selection_available": True,
+        "integration_status": "active"
+    }
+
+@devpipe_router.get("/status")
+async def devpipe_status():
+    """DevPipe status endpoint"""
+    return {
+        "status": "running",
+        "service": "devpipe-model-selection",
+        "version": "1.0.0",
+        "timestamp": time.time(),
+        "features": {
+            "model_selection": True,
+            "health_monitoring": True,
+            "performance_tracking": True
+        }
+    }
+
+@devpipe_router.post("/message")
+async def devpipe_message(message: dict):
+    """Handle DevPipe messages from VaultPilot"""
+    # Process devpipe message
+    message_type = message.get("header", {}).get("message_type", "unknown")
+    
+    if message_type == "model_selection_request":
+        # Handle model selection request
+        return {
+            "header": {
+                "message_id": str(time.time()),
+                "timestamp": time.time(),
+                "message_type": "model_selection_response",
+                "correlation_id": message.get("header", {}).get("message_id")
+            },
+            "payload": {
+                "success": True,
+                "selected_model": {
+                    "name": "gpt-4o-mini",
+                    "provider": "openai",
+                    "capabilities": ["chat", "text_analysis"]
+                },
+                "reasoning": "Default model selection"
+            }
+        }
+    
+    return {
+        "status": "received",
+        "message_type": message_type,
+        "timestamp": time.time()
+    }
+
+# Include DevPipe router
+app.include_router(devpipe_router)
+
 
 @app.websocket("/ws/obsidian")
 async def websocket_endpoint(websocket: WebSocket, vault_id: str = "default"):

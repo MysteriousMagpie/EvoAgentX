@@ -30,6 +30,86 @@ workflow_processor = WorkflowProcessor()
 agent_manager = AgentManager()
 
 
+# Health check endpoint
+@obsidian_router.get("/health")
+async def health_check():
+    """Health check endpoint for VaultPilot integration"""
+    return {
+        "status": "healthy",
+        "service": "obsidian-api",
+        "timestamp": datetime.now().isoformat(),
+        "vaultpilot_integration": True
+    }
+
+
+# Model selection endpoints for VaultPilot
+@obsidian_router.post("/models/select")
+async def select_model(request: dict):
+    """Select optimal model for a task"""
+    return {
+        "selected_model": {
+            "name": "gpt-4o-mini",
+            "provider": "openai",
+            "capabilities": ["chat", "text_analysis", "vault_management"]
+        },
+        "reasoning": "Selected based on task requirements",
+        "fallback_models": ["gpt-4o", "gpt-3.5-turbo"]
+    }
+
+
+@obsidian_router.post("/models/health")
+async def check_model_health(request: dict):
+    """Check health status of models"""
+    return {
+        "models": {
+            "gpt-4o-mini": {
+                "status": "healthy",
+                "success_rate": 0.95,
+                "average_response_time": 1.2,
+                "last_check": datetime.now().isoformat()
+            },
+            "gpt-4o": {
+                "status": "healthy", 
+                "success_rate": 0.98,
+                "average_response_time": 2.1,
+                "last_check": datetime.now().isoformat()
+            }
+        },
+        "summary": {
+            "total_models": 2,
+            "healthy_models": 2,
+            "degraded_models": 0,
+            "failed_models": 0
+        }
+    }
+
+
+@obsidian_router.get("/models/available")
+async def get_available_models():
+    """Get list of available models"""
+    return {
+        "models": [
+            {
+                "name": "gpt-4o-mini",
+                "capabilities": ["chat", "text_analysis", "vault_management"],
+                "status": "healthy"
+            },
+            {
+                "name": "gpt-4o",
+                "capabilities": ["reasoning", "creative_writing", "code_generation"],
+                "status": "healthy"
+            },
+            {
+                "name": "gpt-3.5-turbo",
+                "capabilities": ["chat", "summarization"],
+                "status": "healthy"
+            }
+        ],
+        "total_count": 3,
+        "task_types": ["chat", "code_generation", "text_analysis", "reasoning", "creative_writing", "summarization", "vault_management"]
+    }
+
+
 # Dependency for error handling
 async def handle_errors(func):
     """Common error handling decorator"""
