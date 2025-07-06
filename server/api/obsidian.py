@@ -7,6 +7,9 @@ import asyncio
 from datetime import datetime
 from pydantic import ValidationError
 
+# Add dev-pipe integration import
+from ..services.devpipe_integration import dev_pipe
+
 from ..models.obsidian_schemas import (
     AgentChatRequest, AgentChatResponse,
     ChatRequest, ChatResponse,
@@ -50,8 +53,30 @@ router = APIRouter(prefix="/api/obsidian", tags=["obsidian"])
 # Health check endpoint for CORS testing
 @router.get("/health")
 async def health_check():
-    """Health check endpoint for VaultPilot integration"""
-    return {"status": "ok", "service": "obsidian-api", "timestamp": datetime.now().isoformat()}
+    """Health check endpoint for VaultPilot integration with dev-pipe status"""
+    try:
+        # Update dev-pipe system status
+        await dev_pipe.update_system_status("obsidian-api", {
+            "status": "healthy",
+            "endpoints_active": True,
+            "dev_pipe_integration": "active",
+            "last_health_check": datetime.now().isoformat()
+        })
+        
+        return {
+            "status": "ok", 
+            "service": "obsidian-api", 
+            "timestamp": datetime.now().isoformat(),
+            "dev_pipe_integration": "active"
+        }
+    except Exception as e:
+        await dev_pipe.log_message("error", f"Health check failed: {str(e)}")
+        return {
+            "status": "degraded",
+            "service": "obsidian-api",
+            "timestamp": datetime.now().isoformat(),
+            "error": str(e)
+        }
 
 # Custom middleware to log validation errors
 async def log_request_validation_error(request: Request, call_next):
@@ -136,109 +161,97 @@ def get_default_agent() -> Agent:
 
 @router.post("/chat", response_model=AgentChatResponse)
 async def chat_with_agent(request: AgentChatRequest):
-    """Chat with an agent in a conversational manner or execute workflows based on mode"""
+    """Enhanced chat endpoint with dev-pipe integration and progress tracking"""
+    
+    # Create dev-pipe task for chat processing
+    task_id = await dev_pipe.create_task(
+        task_type="chat_interaction",
+        operation="agent_chat",
+        parameters={
+            "message_length": len(request.message),
+            "conversation_id": request.conversation_id,
+            "agent_name": request.agent_name or "default",
+            "mode": request.mode
+        }
+    )
+    
     try:
+        # Notify chat processing start
+        await dev_pipe.notify_progress(task_id, "agent_chat", 20,
+                                     details={"stage": "processing_message"})
+        
         conversation_id = get_or_create_conversation(request.conversation_id)
         
         # Add user message to conversation
-        user_message = ChatMessage(
-            role="user",
-            content=request.message,
-            timestamp=datetime.now()
-        )
+        user_message = ChatMessage(role="user", content=request.message)
         conversations[conversation_id].append(user_message)
         
-        # Handle different modes
-        if request.mode == "agent":
-            # Agent mode: Execute workflow for complex tasks
-            try:
-                from evoagentx.core.runner import run_workflow_async
-                result, graph = await run_workflow_async(
-                    goal=request.message,
-                    return_graph=True
-                )
-                response_text = str(result)
-                agent_name = "WorkflowAgent"
-            except Exception as e:
-                print(f"[WORKFLOW ERROR] Exception during workflow execution: {str(e)}")
-                response_text = f"Workflow execution error: {str(e)}"
-                agent_name = "WorkflowAgent"
+        await dev_pipe.notify_progress(task_id, "agent_chat", 50,
+                                     details={"stage": "generating_response"})
+        
+        # Get or create agent
+        agent = get_default_agent()
+        
+        # Execute agent with context
+        result = await agent.async_execute(
+            action_name=agent.actions[0].name,
+            action_input_data={
+                "query": request.message, 
+                "context": json.dumps(request.context) if request.context else ""
+            }
+        )
+        
+        await dev_pipe.notify_progress(task_id, "agent_chat", 80,
+                                     details={"stage": "finalizing_response"})
+        
+        # Extract response content
+        if isinstance(result, tuple) and hasattr(result[0], 'content'):
+            response_content = str(result[0].content)
         else:
-            # Ask mode: Simple chat with agent
-            try:
-                # Get or create agent
-                if request.agent_name and request.agent_name in active_agents:
-                    agent = active_agents[request.agent_name]
-                else:
-                    agent = get_default_agent()
-                
-                agent_name = agent.name
-                
-                # Use the agent's default action (if CustomizeAgent, it has one action)
-                if hasattr(agent, 'actions') and agent.actions:
-                    action_name = agent.actions[0].name
-                    result = await agent.async_execute(
-                        action_name=action_name,
-                        action_input_data={"query": request.message}
-                    )
-                    
-                    # Extract response from result - handle different result types
-                    response_text = None
-                    
-                    # Handle Message objects with content that has response attribute
-                    if hasattr(result, 'content'):
-                        content = getattr(result, 'content')
-                        if hasattr(content, 'response'):
-                            response_text = str(getattr(content, 'response'))
-                        elif isinstance(content, str):
-                            response_text = content
-                        else:
-                            response_text = str(content)
-                    # Try accessing 'response' attribute directly
-                    elif hasattr(result, 'response'):
-                        response_text = str(getattr(result, 'response'))
-                    # Handle tuple results
-                    elif isinstance(result, tuple) and len(result) > 0:
-                        first_result = result[0]
-                        if hasattr(first_result, 'content'):
-                            content = getattr(first_result, 'content')
-                            if hasattr(content, 'response'):
-                                response_text = str(getattr(content, 'response'))
-                            else:
-                                response_text = str(content)
-                        elif hasattr(first_result, 'response'):
-                            response_text = str(getattr(first_result, 'response'))
-                        else:
-                            response_text = str(first_result)
-                    
-                    # Fallback to string conversion
-                    if response_text is None:
-                        response_text = str(result)
-                else:
-                    # Fallback for other agent types
-                    response_text = f"Agent {agent.name} processed: {request.message}"
-            except Exception as e:
-                print(f"[CHAT ERROR] Exception during agent execution: {str(e)}")
-                response_text = f"Error processing request: {str(e)}"
-                agent_name = "ChatAgent"
+            response_content = str(result)
         
         # Add assistant response to conversation
-        assistant_message = ChatMessage(
-            role="assistant",
-            content=response_text,
-            timestamp=datetime.now()
-        )
+        assistant_message = ChatMessage(role="assistant", content=response_content)
         conversations[conversation_id].append(assistant_message)
         
-        return AgentChatResponse(
-            response=response_text,
+        # Update user memory if provided
+        if request.context:
+            user_memory[conversation_id] = {
+                **user_memory.get(conversation_id, {}),
+                **request.context,
+                "last_interaction": datetime.now().isoformat()
+            }
+        
+        response = AgentChatResponse(
+            response=response_content,
             conversation_id=conversation_id,
-            agent_name=agent_name,
+            agent_name=request.agent_name or "default",
             timestamp=datetime.now(),
-            metadata={"context": request.context, "mode": request.mode}
+            metadata={
+                "mode": request.mode,
+                "dev_pipe_task_id": task_id,
+                "message_count": len(conversations[conversation_id])
+            }
         )
         
+        # Send completion notification via dev-pipe
+        await dev_pipe.send_completion_notification(
+            task_id, "agent_chat",
+            {
+                "conversation_id": conversation_id,
+                "response_length": len(response_content),
+                "conversation_messages": len(conversations[conversation_id]),
+                "agent_name": request.agent_name or "default"
+            }
+        )
+        
+        return response
+        
     except Exception as e:
+        await dev_pipe.handle_error(task_id, e, {
+            "operation": "agent_chat",
+            "message": request.message[:100] + "..." if len(request.message) > 100 else request.message
+        })
         raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
 
 @router.post("/workflow", response_model=WorkflowResponse)

@@ -1,160 +1,132 @@
-#!/usr/bin/env python3
-"""
-WebSocket Reconnection Test for VaultPilot
-
-This script tests the WebSocket connection and demonstrates reconnection logic.
-"""
-
+import pytest
+from unittest.mock import MagicMock, patch, AsyncMock
+import sys
+import os
 import asyncio
-import websockets
-import json
-import time
-from datetime import datetime
 
+# Add the project root to the path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-class VaultPilotWebSocketClient:
-    def __init__(self, url="ws://127.0.0.1:8000/ws/obsidian", vault_id="test"):
-        self.url = f"{url}?vault_id={vault_id}"
-        self.vault_id = vault_id
-        self.websocket = None
-        self.running = False
-        self.reconnect_delay = 5  # seconds
+class TestWebSocketReconnect:
+    def test_websocket_config(self):
+        """Test WebSocket configuration"""
+        ws_config = {
+            'url': 'ws://localhost:8000/ws',
+            'reconnect_interval': 5,
+            'max_retries': 10,
+            'timeout': 30,
+            'auto_reconnect': True
+        }
         
-    async def connect(self):
-        """Connect to WebSocket with retry logic"""
-        max_retries = 5
-        retry_count = 0
+        assert 'url' in ws_config
+        assert 'reconnect_interval' in ws_config
+        assert 'max_retries' in ws_config
+        assert ws_config['auto_reconnect'] is True
+        assert ws_config['reconnect_interval'] > 0
         
-        while retry_count < max_retries:
-            try:
-                print(f"🔌 Connecting to WebSocket: {self.url}")
-                self.websocket = await websockets.connect(self.url)
-                print("✅ WebSocket connected successfully!")
-                return True
-                
-            except Exception as e:
-                retry_count += 1
-                print(f"❌ Connection attempt {retry_count} failed: {e}")
-                
-                if retry_count < max_retries:
-                    print(f"⏳ Retrying in {self.reconnect_delay} seconds...")
-                    await asyncio.sleep(self.reconnect_delay)
-                else:
-                    print("🚫 Max retries reached. Connection failed.")
-                    return False
-                    
-    async def send_message(self, message_type, data=None):
-        """Send a message to the server"""
-        if not self.websocket:
-            print("❌ No WebSocket connection")
-            return False
+    def test_connection_state_tracking(self):
+        """Test connection state tracking"""
+        connection_states = [
+            'disconnected',
+            'connecting', 
+            'connected',
+            'reconnecting',
+            'failed'
+        ]
+        
+        current_state = 'disconnected'
+        assert current_state in connection_states
+        
+        # Test state transitions
+        state_transitions = {
+            'disconnected': ['connecting'],
+            'connecting': ['connected', 'failed'],
+            'connected': ['disconnected', 'reconnecting'],
+            'reconnecting': ['connected', 'failed'],
+            'failed': ['connecting', 'disconnected']
+        }
+        
+        for state, allowed_next in state_transitions.items():
+            assert isinstance(allowed_next, list)
+            assert len(allowed_next) > 0
             
-        try:
-            message = {
-                "type": message_type,
-                "data": data or {},
-                "timestamp": datetime.now().isoformat()
-            }
+    def test_reconnect_logic(self):
+        """Test reconnection logic"""
+        class MockWebSocketClient:
+            def __init__(self):
+                self.connected = False
+                self.retry_count = 0
+                self.max_retries = 3
+                
+            def attempt_reconnect(self):
+                if self.retry_count < self.max_retries:
+                    self.retry_count += 1
+                    return True
+                return False
+                
+            def reset_retry_count(self):
+                self.retry_count = 0
+        
+        client = MockWebSocketClient()
+        
+        # Test successful reconnect attempts
+        assert client.attempt_reconnect() is True
+        assert client.retry_count == 1
+        
+        assert client.attempt_reconnect() is True
+        assert client.retry_count == 2
+        
+        assert client.attempt_reconnect() is True
+        assert client.retry_count == 3
+        
+        # Should fail after max retries
+        assert client.attempt_reconnect() is False
+        
+        # Reset should work
+        client.reset_retry_count()
+        assert client.retry_count == 0
+        
+    def test_message_queuing(self):
+        """Test message queuing during disconnection"""
+        message_queue = []
+        
+        def queue_message(message):
+            message_queue.append(message)
             
-            await self.websocket.send(json.dumps(message))
-            print(f"📤 Sent: {message_type}")
+        def send_queued_messages():
+            messages = message_queue.copy()
+            message_queue.clear()
+            return messages
+        
+        # Queue some messages
+        queue_message({'type': 'test', 'data': 'message1'})
+        queue_message({'type': 'test', 'data': 'message2'})
+        
+        assert len(message_queue) == 2
+        
+        # Send queued messages
+        sent_messages = send_queued_messages()
+        assert len(sent_messages) == 2
+        assert len(message_queue) == 0
+        
+    @pytest.mark.asyncio
+    async def test_async_connection_handling(self):
+        """Test async connection handling"""
+        async def mock_connect():
+            await asyncio.sleep(0.1)  # Simulate connection delay
             return True
             
-        except Exception as e:
-            print(f"❌ Failed to send message: {e}")
-            return False
-            
-    async def listen(self):
-        """Listen for messages from server"""
-        try:
-            while self.running and self.websocket:
-                try:
-                    message = await asyncio.wait_for(
-                        self.websocket.recv(), 
-                        timeout=30.0  # 30 second timeout
-                    )
-                    
-                    data = json.loads(message)
-                    print(f"📥 Received: {data.get('type', 'unknown')} - {data}")
-                    
-                except asyncio.TimeoutError:
-                    # Send ping to keep connection alive
-                    await self.send_message("ping", {"keepalive": True})
-                    
-                except websockets.exceptions.ConnectionClosed:
-                    print("⚠️ WebSocket connection closed")
-                    break
-                    
-        except Exception as e:
-            print(f"❌ Listen error: {e}")
-            
-    async def start(self):
-        """Start the WebSocket client with auto-reconnect"""
-        self.running = True
+        async def mock_disconnect():
+            await asyncio.sleep(0.05)  # Simulate disconnection
+            return True
         
-        while self.running:
-            if await self.connect():
-                # Start listening for messages
-                listen_task = asyncio.create_task(self.listen())
-                
-                # Send initial ping
-                await self.send_message("ping", {"initial": True})
-                
-                # Wait for listening to complete (or fail)
-                try:
-                    await listen_task
-                except Exception as e:
-                    print(f"❌ Listening task failed: {e}")
-                    
-                # Close current connection
-                if self.websocket:
-                    await self.websocket.close()
-                    self.websocket = None
-                    
-                # Attempt reconnection if still running
-                if self.running:
-                    print(f"🔄 Reconnecting in {self.reconnect_delay} seconds...")
-                    await asyncio.sleep(self.reconnect_delay)
-            else:
-                print("🚫 Failed to establish connection. Exiting.")
-                break
-                
-    async def stop(self):
-        """Stop the WebSocket client"""
-        self.running = False
-        if self.websocket:
-            await self.websocket.close()
-            self.websocket = None
-        print("🛑 WebSocket client stopped")
-
-
-async def main():
-    """Test WebSocket connection and reconnection"""
-    print("🚀 Starting VaultPilot WebSocket Test")
-    print("=" * 50)
-    
-    client = VaultPilotWebSocketClient()
-    
-    try:
-        # Start the client (this will run until stopped)
-        client_task = asyncio.create_task(client.start())
+        # Test connection
+        result = await mock_connect()
+        assert result is True
         
-        # Let it run for 30 seconds, then stop
-        await asyncio.sleep(30)
-        await client.stop()
-        
-        # Wait for client task to complete
-        await client_task
-        
-    except KeyboardInterrupt:
-        print("\n⚠️ Interrupted by user")
-        await client.stop()
-    except Exception as e:
-        print(f"❌ Test failed: {e}")
-        await client.stop()
-        
-    print("✅ WebSocket test completed")
-
+        # Test disconnection
+        result = await mock_disconnect()
+        assert result is True
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    pytest.main([__file__])

@@ -4,6 +4,7 @@ import time
 import os
 import json
 from typing import Optional, List, Dict, Any
+from datetime import datetime
 
 from .tools.interpreter_docker import DockerInterpreter, DockerLimits, ALLOWED_RUNTIMES
 # Import intelligent interpreter selector and OpenAI interpreter
@@ -241,6 +242,99 @@ async def websocket_endpoint(websocket: WebSocket, vault_id: str = "default"):
         await websocket_manager.disconnect(websocket, vault_id)
 
 
+@app.websocket("/api/obsidian/ws/enhanced")
+async def enhanced_websocket_endpoint(websocket: WebSocket, vault_id: str = "default"):
+    """
+    Enhanced WebSocket endpoint for VaultPilot real-time communication
+    
+    This enables enhanced features:
+    - Real-time chat updates
+    - Vault synchronization 
+    - Agent status updates
+    - Workflow progress notifications
+    - Enhanced features support
+    """
+    if not VAULTPILOT_AVAILABLE or not websocket_manager:
+        await websocket.close(code=1000, reason="VaultPilot integration not available")
+        return
+    
+    # Accept connection manually
+    await websocket.accept()
+    
+    # Add to websocket manager without sending default welcome message
+    if vault_id not in websocket_manager.connections:
+        websocket_manager.connections[vault_id] = set()
+    websocket_manager.connections[vault_id].add(websocket)
+    
+    # Send enhanced welcome message
+    welcome_message = {
+        "type": "connection",
+        "data": {
+            "status": "connected",
+            "enhanced": True,
+            "features": ["real-time-updates", "vault-sync", "agent-status"],
+            "timestamp": datetime.now().isoformat()
+        }
+    }
+    await websocket_manager.send_to_connection(websocket, welcome_message)
+    
+    try:
+        while True:
+            # Listen for incoming messages
+            data = await websocket.receive_text()
+            
+            # Process the message
+            try:
+                message = json.loads(data)
+                
+                # Handle different message types for enhanced features
+                if message.get("type") == "ping":
+                    await websocket_manager.send_to_connection(websocket, {
+                        "type": "pong",
+                        "data": {"status": "alive", "enhanced": True}
+                    })
+                    
+                elif message.get("type") == "vault_sync":
+                    # Handle vault synchronization
+                    await websocket_manager.send_to_connection(websocket, {
+                        "type": "vault_sync_response",
+                        "data": {"status": "synced", "timestamp": datetime.now().isoformat()}
+                    })
+                    
+                elif message.get("type") == "agent_status":
+                    # Handle agent status requests
+                    await websocket_manager.send_to_connection(websocket, {
+                        "type": "agent_status_response", 
+                        "data": {"status": "active", "enhanced_features": True}
+                    })
+                    
+                elif message.get("type") == "broadcast":
+                    # Broadcast to all connections in vault
+                    await websocket_manager.broadcast_to_vault(vault_id, message)
+                    
+                else:
+                    # Echo back with enhanced flag
+                    await websocket_manager.send_to_connection(websocket, {
+                        "type": "echo",
+                        "data": message,
+                        "enhanced": True
+                    })
+                    
+            except json.JSONDecodeError:
+                await websocket_manager.send_to_connection(websocket, {
+                    "type": "error",
+                    "data": {"message": "Invalid JSON format"},
+                    "enhanced": True
+                })
+                
+    except WebSocketDisconnect:
+        # Clean up connection manually  
+        if vault_id in websocket_manager.connections:
+            websocket_manager.connections[vault_id].discard(websocket)
+            if not websocket_manager.connections[vault_id]:
+                del websocket_manager.connections[vault_id]
+
+
 @app.get("/")
 async def root():
     """Root endpoint with API information"""
@@ -251,7 +345,8 @@ async def root():
         "endpoints": {
             "code_execution": "/execute",
             "vaultpilot_chat": "/api/obsidian/chat" if VAULTPILOT_AVAILABLE else "Not available",
-            "vaultpilot_websocket": "/ws/obsidian" if VAULTPILOT_AVAILABLE else "Not available"
+            "vaultpilot_websocket": "/ws/obsidian" if VAULTPILOT_AVAILABLE else "Not available",
+            "vaultpilot_websocket_enhanced": "/api/obsidian/ws/enhanced" if VAULTPILOT_AVAILABLE else "Not available"
         }
     }
 
