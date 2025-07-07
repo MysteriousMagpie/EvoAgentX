@@ -55,6 +55,14 @@
 - **[October 2024]** ⚡ **Enhanced Performance** - 87% test coverage, comprehensive error handling, and production-ready architecture
 
 ## ⚡ Get Started
+
+### 🗺️ **Navigation**
+- 📊 **[Implementation Status Index](./docs/IMPLEMENTATION_STATUS_INDEX.md)** - Complete feature overview and current status
+- 📖 **[Documentation Guide](./docs/DOCUMENTATION_GUIDE.md)** - Navigate all documentation by role and use case
+- ⚡ **[Quick Start Guide](./docs/quickstart.md)** - Get up and running in 5 minutes
+- 💻 **[CLAUDE.md](./CLAUDE.md)** - Claude Code integration and development guide
+
+### 📋 **Table of Contents**
 - [🔥 Latest News](#-latest-news)
 - [⚡ Get Started](#-get-started)
 - [🎯 What's New in v1.0.0](#-whats-new-in-v100)

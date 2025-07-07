@@ -6,9 +6,10 @@ Copy this to your EvoAgentX project and customize the implementations.
 """
 
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from typing import List, Optional
 import uuid
+import json
 from datetime import datetime
 
 # Import your models (adjust import path as needed)
@@ -141,6 +142,76 @@ async def chat_with_agent(request: ChatRequest):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Chat processing failed: {str(e)}")
+
+
+@obsidian_router.post("/chat/stream")
+async def chat_with_agent_stream(request: ChatStreamRequest):
+    """
+    Streaming chat endpoint for VaultPilot conversations
+    
+    Returns Server-Sent Events (SSE) stream for real-time chat responses.
+    """
+    try:
+        # Generate conversation ID if not provided
+        conversation_id = request.conversation_id or str(uuid.uuid4())
+        
+        async def generate_stream():
+            """Generate SSE stream from chat response chunks"""
+            try:
+                # Send start event
+                start_event = {
+                    "type": "start",
+                    "stream_id": str(uuid.uuid4()),
+                    "conversation_id": conversation_id
+                }
+                yield f"data: {json.dumps(start_event)}\n\n"
+                
+                # Stream chat response chunks
+                async for chunk in agent_manager.process_chat_stream(request):
+                    chunk_event = {
+                        "type": "chunk",
+                        "id": chunk.id,
+                        "content": chunk.content,
+                        "is_complete": chunk.is_complete,
+                        "metadata": chunk.metadata
+                    }
+                    yield f"data: {json.dumps(chunk_event)}\n\n"
+                    
+                    # If this is the final chunk, break
+                    if chunk.is_complete:
+                        break
+                
+                # Send completion event
+                complete_event = {
+                    "type": "complete",
+                    "stream_id": str(uuid.uuid4())
+                }
+                yield f"data: {json.dumps(complete_event)}\n\n"
+                
+            except Exception as e:
+                # Send error event
+                error_event = {
+                    "type": "error",
+                    "error": str(e)
+                }
+                yield f"data: {json.dumps(error_event)}\n\n"
+        
+        # Return streaming response with SSE headers
+        headers = {
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "*"
+        }
+        
+        return StreamingResponse(
+            generate_stream(),
+            media_type="text/plain",
+            headers=headers
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Streaming chat failed: {str(e)}")
 
 
 @obsidian_router.post("/conversation/history", response_model=APIResponse)

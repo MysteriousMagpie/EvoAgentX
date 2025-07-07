@@ -8,7 +8,7 @@ into actionable steps and coordinating their execution.
 import asyncio
 import json
 import uuid
-from typing import List, Dict, Any, Optional, Callable
+from typing import List, Dict, Any, Optional, Callable, Literal
 from datetime import datetime, timedelta
 from enum import Enum
 
@@ -107,7 +107,8 @@ class WorkflowProcessor:
                 artifacts=[],
                 execution_time=execution_time,
                 execution_id=execution_id,
-                status="failed"
+                status="failed",
+                graph={}
             )
         finally:
             # Cleanup
@@ -317,7 +318,7 @@ class WorkflowProcessor:
             await self._send_progress_update(execution_id, f"Failed: {step.description}", 0.0, "error")
             raise
     
-    async def _send_progress_update(self, execution_id: str, step: str, progress: float, status: str):
+    async def _send_progress_update(self, execution_id: str, step: str, progress: float, status: Literal["running", "completed", "error"]):
         """Send progress update to callback if available"""
         if execution_id in self.progress_callbacks:
             callback = self.progress_callbacks[execution_id]

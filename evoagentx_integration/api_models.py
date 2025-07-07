@@ -66,7 +66,28 @@ class ConversationHistory(BaseModel):
     conversation_id: str
     messages: List[ChatMessage]
     total_count: int
-    
+
+
+# Streaming Chat Models
+class ChatStreamRequest(BaseModel):
+    """Streaming chat request from VaultPilot"""
+    message: str = Field(..., min_length=1, description="User message")
+    conversation_id: Optional[str] = Field(None, description="Conversation ID for continuation")
+    vault_context: Optional[str] = Field(None, description="Current vault content context")
+    agent_id: Optional[str] = Field(None, description="Specific agent to use")
+    stream: bool = Field(default=True, description="Enable streaming response")
+    stream_options: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Streaming configuration")
+
+
+class ChatStreamChunk(BaseModel):
+    """Individual chunk in a streaming chat response"""
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    conversation_id: Optional[str] = Field(None, description="Conversation ID")
+    content: str = Field(..., description="Chunk content")
+    is_complete: bool = Field(default=False, description="Whether this is the final chunk")
+    metadata: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Additional chunk metadata")
+    timestamp: datetime = Field(default_factory=datetime.now)
+
 
 # Copilot Models
 class CopilotRequest(BaseModel):
